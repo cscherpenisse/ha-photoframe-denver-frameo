@@ -35,3 +35,10 @@ Commando's
 - ./adb reboot (herstarten)
 - ./adb shell am start -n de.ozerov.fully/.MainActivity (Fully Kiosk App opstarten)
 - ./adb shell settings put system screen_brightness 255 (helderheid scherm, 255=maximaal 0=minimaal)
+
+Via Home Assistant, Actie (Ontwikkelaarshulpmiddelen)
+action: androidtv.adb_command
+data:
+  command: echo '<255,255,0,0>' > /sdcard/frameo_light.txt
+target:
+  entity_id: media_player.android_tv_192_168_40_76
