@@ -25,6 +25,11 @@ Inschakelen adb via wifi
 - Haal usb kabel uit pc of photoframe
 - ./adb devices (response: List of devices attached 192.168.40.76:5555      device)
 
+Standaard opstarten adb via wifi instellen
+- ./adb shell setprop persist.adb.tcp.port 5555
+- ./adb reboot
+- ./adb connect 192.168.40.76:5555
+
 Aansturen ledrand photframe
 - adb inschakelen via wifi (bovenstaande stappen)
 - ./adb shell "echo '<95,255,255,48>' > /sdcard/frameo_light.txt" (<brightness,r,g,b>)
