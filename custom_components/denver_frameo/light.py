@@ -1,14 +1,8 @@
-
-
-
-from homeassistant.components.light import (
-    ATTR_BRIGHTNESS,
-    ATTR_RGB_COLOR,
-    ColorMode,
-    LightEntity,
-)
+from homeassistant.components.light import LightEntity, ColorMode
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
 from .device import get_device_info
+
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data["denver_frameo"][entry.entry_id]
@@ -25,8 +19,10 @@ class FrameoLedLight(CoordinatorEntity, LightEntity):
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
+
+        # ✅ HIER hoort het
         self._attr_device_info = get_device_info(coordinator.config_entry)
-        
+
     @property
     def is_on(self):
         return self.coordinator.data["is_on"]
@@ -40,28 +36,12 @@ class FrameoLedLight(CoordinatorEntity, LightEntity):
         return self.coordinator.data["rgb"]
 
     async def async_turn_on(self, **kwargs):
-        brightness = kwargs.get(
-            ATTR_BRIGHTNESS,
-            self.brightness or 95,
-        )
+        brightness = kwargs.get("brightness", self.brightness or 95)
+        r, g, b = kwargs.get("rgb_color", self.rgb_color or (255, 255, 255))
 
-        rgb = kwargs.get(
-            ATTR_RGB_COLOR,
-            self.rgb_color or (255, 255, 255),
-        )
-
-        r, g, b = rgb
-
-        await self.coordinator.adb.set_led_state(
-            brightness,
-            r,
-            g,
-            b,
-        )
-
+        await self.coordinator.adb.set_led_state(brightness, r, g, b)
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs):
         await self.coordinator.adb.set_led_state(0, 0, 0, 0)
-
         await self.coordinator.async_request_refresh()
