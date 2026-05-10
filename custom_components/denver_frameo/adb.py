@@ -1,5 +1,6 @@
+import asyncio
 from adb_shell.adb_device_async import AdbDeviceTcpAsync
-from adb_shell.auth.sign_pythonrsa import PythonRSASigner
+from adb_shell.exceptions import AdbConnectionError
 
 
 class FrameoADB:
@@ -7,25 +8,68 @@ class FrameoADB:
         self.host = host
         self.port = port
         self.device = AdbDeviceTcpAsync(host, port)
+        self.connected = False
 
     async def connect(self):
-        await self.device.connect(rsa_keys=[])
+        """Establish ADB connection."""
+        try:
+            await self.device.connect(rsa_keys=[])
+            self.connected = True
+        except Exception:
+            self.connected = False
+            raise
+
+    async def ensure_connected(self):
+        """Ensure ADB connection with retries."""
+        if self.connected:
+            return
+
+        for _ in range(3):
+            try:
+                await self.connect()
+                return
+            except Exception:
+                await asyncio.sleep(1)
+
+        self.connected = False
+        raise AdbConnectionError("Unable to connect to ADB device")
 
     async def shell(self, command: str):
+        """Execute ADB shell command safely."""
+        await self.ensure_connected()
         return await self.device.shell(command)
 
-    async def read_led_state(self):
-        raw = await self.shell("cat /sdcard/frameo_light.txt")
-        return raw.strip()
+    # -------------------------
+    # LED CONTROL
+    # -------------------------
 
-    async def set_led_state(self, brightness, r, g, b):
-        cmd = f"echo '<{brightness},{r},{g},{b}>' > /sdcard/frameo_light.txt"
+    async def read_led_state(self) -> str:
+        """Read LED state from file on device."""
+        try:
+            raw = await self.shell("cat /sdcard/frameo_light.txt")
+            return raw.strip()
+        except Exception:
+            # fallback if file missing or ADB fails
+            return "<0,0,0,0>"
+
+    async def set_led_state(self, brightness: int, r: int, g: int, b: int):
+        """Write LED state to device."""
+        cmd = (
+            f"echo '<{brightness},{r},{g},{b}>' "
+            f"> /sdcard/frameo_light.txt"
+        )
         await self.shell(cmd)
 
-    async def set_screen_brightness(self, brightness):
+    # -------------------------
+    # SCREEN CONTROL
+    # -------------------------
+
+    async def toggle_screen(self):
+        """Toggle screen power."""
+        await self.shell("input keyevent 26")
+
+    async def set_screen_brightness(self, brightness: int):
+        """Set Android system brightness."""
         await self.shell(
             f"settings put system screen_brightness {brightness}"
         )
-
-    async def toggle_screen(self):
-        await self.shell("input keyevent 26")
