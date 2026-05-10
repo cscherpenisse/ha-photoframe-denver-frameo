@@ -1,4 +1,6 @@
 from datetime import timedelta
+import logging
+LOGGER = logging.getLogger(__name__)
 
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
@@ -15,12 +17,17 @@ class FrameoCoordinator(DataUpdateCoordinator):
             entry.data["port"],
         )
 
-        super().__init__(
-            hass,
-            logger=None,
-            name="Denver Frameo Photoframe",
-            update_interval=timedelta(seconds=SCAN_INTERVAL),
-        )
+
+
+
+    super().__init__(
+        hass,
+        logger=LOGGER,
+        name="Denver Frameo Photoframe",
+        update_interval=timedelta(seconds=SCAN_INTERVAL),
+    )
+
+
 
     async def _async_update_data(self):
         try:
