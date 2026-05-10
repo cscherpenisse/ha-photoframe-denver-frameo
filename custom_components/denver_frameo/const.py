@@ -4,3 +4,8 @@ DEFAULT_PORT = 5555
 SCAN_INTERVAL = 5
 
 LOGGER_NAME = "denver_frameo"
+
+DOMAIN = "denver_frameo"
+NAME = "Denver Frameo Photoframe"
+MANUFACTURER = "Denver"
+MODEL = "PFF-1082"
