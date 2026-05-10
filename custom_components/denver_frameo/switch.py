@@ -1,9 +1,7 @@
-from .device import get_device_info
-self._attr_device_info = get_device_info(coordinator.config_entry)
-
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .device import get_device_info
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data["denver_frameo"][entry.entry_id]
@@ -18,7 +16,8 @@ class FrameoScreenSwitch(CoordinatorEntity, SwitchEntity):
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
-
+        self._attr_device_info = get_device_info(coordinator.config_entry)
+        
     @property
     def is_on(self):
         return True
