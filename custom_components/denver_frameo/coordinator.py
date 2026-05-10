@@ -28,18 +28,22 @@ class FrameoCoordinator(DataUpdateCoordinator):
 
     async def _async_update_data(self):
         try:
-            await self.adb.connect()
-        except Exception:
-            pass
+            await self.adb.ensure_connected()
 
-        raw = await self.adb.read_led_state()
+            raw = await self.adb.read_led_state()
 
-        raw = raw.strip("<>")
+            raw = raw.strip("<>")
+            br, r, g, b = map(int, raw.split(","))
 
-        br, r, g, b = map(int, raw.split(","))
+            return {
+                "brightness": br,
+                "rgb": (r, g, b),
+                "is_on": br > 0,
+            }
 
-        return {
-            "brightness": br,
-            "rgb": (r, g, b),
-            "is_on": br > 0,
-        }
+        except Exception as err:        
+            return {
+                "brightness": 0,
+                "rgb": (0, 0, 0),
+                "is_on": False,
+            }
