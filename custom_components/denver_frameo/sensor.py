@@ -1,3 +1,6 @@
+from .device import get_device_info
+self._attr_device_info = get_device_info(coordinator.config_entry)
+
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
