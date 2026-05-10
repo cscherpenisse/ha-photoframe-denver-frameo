@@ -5,7 +5,7 @@ from homeassistant import config_entries
 from .const import DOMAIN, DEFAULT_PORT
 
 
-class DenverFrameoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
@@ -15,14 +15,15 @@ class DenverFrameoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data=user_input,
             )
 
-        schema = vol.Schema(
-            {
-                vol.Required("host"): str,
-                vol.Optional("port", default=DEFAULT_PORT): int,
-            }
-        )
-
         return self.async_show_form(
             step_id="user",
-            data_schema=schema,
+            data_schema=vol.Schema(
+                {
+                    vol.Required("host"): str,
+                    vol.Optional(
+                        "port",
+                        default=DEFAULT_PORT,
+                    ): int,
+                }
+            ),
         )
