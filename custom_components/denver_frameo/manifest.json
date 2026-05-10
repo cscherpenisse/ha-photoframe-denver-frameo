@@ -1,0 +1,14 @@
+{
+  "domain": "denver_frameo",
+  "name": "Denver Frameo Photoframe",
+  "version": "1.0.0",
+  "documentation": "https://github.com/cscherpenisse/ha-photoframe-denver-frameo",
+  "requirements": [
+    "adb-shell==0.4.4"
+  ],
+  "codeowners": [
+    "@cscherpenisse"
+  ],
+  "config_flow": true,
+  "iot_class": "local_polling"
+}
