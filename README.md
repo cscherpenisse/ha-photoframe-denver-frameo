@@ -37,14 +37,14 @@ Inschakelen adb via wifi
 - Verbind photoframe via usb kabel met pc
 - ./adb devices (response: 59734398        device)
 - ./adb tcpip 5555 (response: restarting in TCP mode port: 5555)
-- ./adb connect 192.168.40.76:5555 (response: connected to 192.168.40.76:5555)
+- ./adb connect 192.168.xx.xx:5555 (response: connected to 192.168.xx.xx:5555)
 - Haal usb kabel uit pc of photoframe
-- ./adb devices (response: List of devices attached 192.168.40.76:5555      device)
+- ./adb devices (response: List of devices attached 192.168.xx.xx:5555      device)
 
 Standaard opstarten adb via wifi instellen
 - ./adb shell setprop persist.adb.tcp.port 5555
 - ./adb reboot
-- ./adb connect 192.168.40.76:5555
+- ./adb connect 192.168.xx.xx:5555
 
 Aansturen ledrand photframe
 - adb inschakelen via wifi (bovenstaande stappen)
@@ -62,4 +62,4 @@ action: androidtv.adb_command
 data:
   command: echo '<255,255,0,0>' > /sdcard/frameo_light.txt
 target:
-  entity_id: media_player.android_tv_192_168_40_76
+  entity_id: media_player.android_tv_192_168_xx_xx
