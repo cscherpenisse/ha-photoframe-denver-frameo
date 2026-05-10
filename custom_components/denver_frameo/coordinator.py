@@ -16,16 +16,13 @@ class FrameoCoordinator(DataUpdateCoordinator):
             entry.data["host"],
             entry.data["port"],
         )
-
-
-
-
-    super().__init__(
-        hass,
-        logger=LOGGER,
-        name="Denver Frameo Photoframe",
-        update_interval=timedelta(seconds=SCAN_INTERVAL),
-    )
+        
+        super().__init__(
+            hass,
+            logger=LOGGER,
+            name="Denver Frameo Photoframe",
+            update_interval=timedelta(seconds=SCAN_INTERVAL),
+        )
 
 
 
