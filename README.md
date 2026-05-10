@@ -1,5 +1,21 @@
-# ha-photoframe-denver PFF-1082
+# Denver / Frameo Photoframe Home Assistant Integration
 
+Features:
+
+- LED control
+- RGB support
+- Brightness
+- Screen power
+- ADB over TCP
+- Denver PFF support
+- Frameo support
+
+Install through HACS custom repositories.
+
+Tested devices: Denver PFF-1082
+
+
+======================================================================================
 Stappenplan installeren Kiosk App
 
 - Installeren van adb tool op windows PC C:\platform-tools
