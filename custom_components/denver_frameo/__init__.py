@@ -1,3 +1,5 @@
+from .coordinator import FrameoCoordinator
+
 PLATFORMS = ["light", "switch", "sensor"]
 
 
