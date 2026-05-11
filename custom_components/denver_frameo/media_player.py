@@ -1,8 +1,21 @@
-from homeassistant.components.media_player import MediaPlayerEntity
-from homeassistant.components.media_player.const import MediaPlayerState
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+```python id="media_player_full"
+import asyncio
+from pathlib import Path
+
+from homeassistant.components.media_player import (
+    MediaPlayerEntity,
+)
+from homeassistant.components.media_player.const import (
+    MediaPlayerState,
+)
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+)
 
 from .device import get_device_info
+
+
+SCREENSHOT_PATH = "/config/www/frameo_screen.png"
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
@@ -13,7 +26,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
     ])
 
 
-class FrameoMediaPlayer(CoordinatorEntity, MediaPlayerEntity):
+class FrameoMediaPlayer(
+    CoordinatorEntity,
+    MediaPlayerEntity,
+):
     _attr_name = "Frameo Display"
 
     def __init__(self, coordinator):
@@ -32,15 +48,30 @@ class FrameoMediaPlayer(CoordinatorEntity, MediaPlayerEntity):
 
     @property
     def media_image_url(self):
-        host = self.coordinator.config_entry.data["host"]
-
-        # Fully Kiosk screenshot endpoint
-        return (
-            f"http://{host}:2323/?cmd=getCurrentImage"
-        )
+        return "/local/frameo_screen.png"
 
     async def async_turn_on(self):
         await self.coordinator.adb.toggle_screen()
 
     async def async_turn_off(self):
         await self.coordinator.adb.toggle_screen()
+
+    async def async_update(self):
+        host = self.coordinator.config_entry.data["host"]
+
+        cmd = (
+            f"adb connect {host}:5555 && "
+            f"adb exec-out screencap -p "
+            f"> {SCREENSHOT_PATH}"
+        )
+
+        proc = await asyncio.create_subprocess_shell(
+            cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+
+        await proc.communicate()
+
+        await super().async_update()
+```
