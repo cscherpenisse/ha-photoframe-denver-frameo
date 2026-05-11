@@ -1,4 +1,3 @@
-```python id="media_player_full"
 import asyncio
 from pathlib import Path
 
@@ -74,4 +73,3 @@ class FrameoMediaPlayer(
         await proc.communicate()
 
         await super().async_update()
-```
