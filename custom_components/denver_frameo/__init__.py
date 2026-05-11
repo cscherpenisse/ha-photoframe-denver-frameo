@@ -1,6 +1,6 @@
 from .coordinator import FrameoCoordinator
 
-PLATFORMS = ["light", "switch", "sensor"]
+PLATFORMS = ["light", "switch", "sensor", "button"]
 
 
 async def async_setup_entry(hass, entry):
