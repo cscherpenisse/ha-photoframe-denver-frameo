@@ -1,4 +1,4 @@
-# Denver / Frameo Photoframe Home Assistant Integration
+# Denver / Frameo Photoframe Home Assistant Integration (Under construction, not yet bug-free)
 
 Features:
 
