@@ -3,9 +3,9 @@ from .const import DOMAIN
 PLATFORMS = [ "light", "switch", "sensor", "button", "media_player", "number", "binary_sensor", ]
 
 async def async_setup_entry(hass, entry):
-    coordinator = FrameoCoordinator(hass, entry)
-
-    await coordinator.async_config_entry_first_refresh()
+    coordinator = FrameoCoordinator(hass, entry)   
+  
+    await coordinator.async_refresh()
 
     hass.data.setdefault("denver_frameo", {})[entry.entry_id] = coordinator
     
