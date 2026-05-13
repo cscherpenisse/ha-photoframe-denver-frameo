@@ -12,6 +12,18 @@ async def async_setup_entry(hass, entry):
     
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    async def handle_send_command(call):
+        command = call.data["command"]
+
+        await coordinator.adb.shell(command)
+
+
+    hass.services.async_register(
+        DOMAIN,
+        "send_command",
+        handle_send_command,
+    )
+
     return True
 
 
