@@ -1,6 +1,6 @@
 DOMAIN = "denver_frameo"
 DEFAULT_PORT = 5555
-SCAN_INTERVAL = 5
+SCAN_INTERVAL = 10
 LOGGER_NAME = "denver_frameo"
 NAME = "Denver Frameo Photoframe"
 MANUFACTURER = "Denver"
