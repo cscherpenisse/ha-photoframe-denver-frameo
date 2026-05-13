@@ -1,7 +1,6 @@
 from .coordinator import FrameoCoordinator
-
+from .const import DOMAIN
 PLATFORMS = [ "light", "switch", "sensor", "button", "media_player", "number", "binary_sensor", ]
-
 
 async def async_setup_entry(hass, entry):
     coordinator = FrameoCoordinator(hass, entry)
