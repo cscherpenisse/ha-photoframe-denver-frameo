@@ -73,3 +73,24 @@ class FrameoADB:
         await self.shell(
             f"settings put system screen_brightness {brightness}"
         )
+    # -------------------------
+    # SCREEN BRIGHTNESS
+    # -------------------------
+
+async def get_screen_brightness(self):
+    """Read Android screen brightness."""
+    result = await self.shell(
+        "settings get system screen_brightness"
+    )
+
+    try:
+        return int(result.strip())
+    except Exception:
+        return 127
+
+
+async def set_screen_brightness(self, brightness: int):
+    """Set Android screen brightness."""
+    await self.shell(
+        f"settings put system screen_brightness {brightness}"
+    )
