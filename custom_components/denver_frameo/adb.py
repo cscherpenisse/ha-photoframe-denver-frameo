@@ -3,9 +3,6 @@ import asyncio
 from adb_shell.adb_device_async import (
     AdbDeviceTcpAsync,
 )
-from adb_shell.exceptions import (
-    AdbConnectionError,
-)
 
 
 class FrameoADB:
@@ -17,102 +14,43 @@ class FrameoADB:
         self.host = host
         self.port = port
 
-        self.device = AdbDeviceTcpAsync(
-            host,
-            port,
-        )
-
-        self.connected = False
-
     # --------------------------------------------------
-    # CONNECTION MANAGEMENT
-    # --------------------------------------------------
-
-    async def connect(self):
-        """Connect to ADB."""
-
-        try:
-            await self.device.connect(
-                rsa_keys=[],
-                auth_timeout_s=3,
-            )
-
-            self.connected = True
-
-        except asyncio.CancelledError:
-            raise
-
-        except Exception:
-            self.connected = False
-            raise
-
-    async def ensure_connected(self):
-        """Ensure ADB connection."""
-
-        if self.connected:
-            return
-
-        for _ in range(3):
-            try:
-                await self.connect()
-                return
-
-            except asyncio.CancelledError:
-                raise
-
-            except Exception:
-                await asyncio.sleep(1)
-
-        self.connected = False
-
-        raise AdbConnectionError(
-            "Unable to connect to Frameo"
-        )
-
-    async def reconnect(self):
-        """Reconnect completely."""
-
-        self.connected = False
-
-        self.device = AdbDeviceTcpAsync(
-            self.host,
-            self.port,
-        )
-
-        await self.ensure_connected()
-
-    # --------------------------------------------------
-    # SHELL COMMANDS
+    # LOW LEVEL SHELL
     # --------------------------------------------------
 
     async def shell(
         self,
         command: str,
     ):
-        """Execute shell command safely."""
+        """Execute one-off ADB command."""
+
+        device = AdbDeviceTcpAsync(
+            self.host,
+            self.port,
+        )
 
         try:
-            await self.ensure_connected()
-
-            return await self.device.shell(
-                command
+            await asyncio.wait_for(
+                device.connect(
+                    rsa_keys=[],
+                    auth_timeout_s=3,
+                ),
+                timeout=5,
             )
 
-        except asyncio.CancelledError:
-            raise
-
-        except Exception:
-            # Connection probably died:
-            # - reboot
-            # - adb restart
-            # - wifi reconnect
-            # - socket reset
-
-            await self.reconnect()
-
-            return await self.device.shell(
-                command
+            result = await asyncio.wait_for(
+                device.shell(command),
+                timeout=10,
             )
+
+            return result
+
+        finally:
+            try:
+                await device.close()
+
+            except Exception:
+                pass
 
     # --------------------------------------------------
     # LED CONTROL
@@ -127,9 +65,6 @@ class FrameoADB:
             )
 
             return raw.strip()
-
-        except asyncio.CancelledError:
-            raise
 
         except Exception:
             return "<0,0,0,0>"
@@ -155,7 +90,7 @@ class FrameoADB:
     # --------------------------------------------------
 
     async def toggle_screen(self):
-        """Toggle display power."""
+        """Toggle screen power."""
 
         await self.shell(
             "input keyevent 26"
@@ -191,7 +126,7 @@ class FrameoADB:
     # --------------------------------------------------
 
     async def get_foreground_app(self):
-        """Get active foreground app."""
+        """Get foreground app."""
 
         result = await self.shell(
             "dumpsys window windows "
@@ -215,11 +150,11 @@ class FrameoADB:
         return "unknown"
 
     # --------------------------------------------------
-    # APP LAUNCHING
+    # APP CONTROL
     # --------------------------------------------------
 
     async def start_fully_kiosk(self):
-        """Launch Fully Kiosk."""
+        """Start Fully Kiosk."""
 
         await self.shell(
             "am start -n "
@@ -227,7 +162,7 @@ class FrameoADB:
         )
 
     async def start_frameo(self):
-        """Launch Frameo."""
+        """Start Frameo."""
 
         await self.shell(
             "am start -n "
@@ -235,11 +170,11 @@ class FrameoADB:
         )
 
     # --------------------------------------------------
-    # SCREENSHOTS
+    # SCREENSHOT
     # --------------------------------------------------
 
     async def create_screenshot(self):
-        """Create screenshot on device."""
+        """Create screenshot."""
 
         await self.shell(
             "screencap -p "
