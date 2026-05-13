@@ -1,0 +1,9 @@
+send_command:
+  name: Send ADB Command
+  description: Send custom ADB shell command
+  fields:
+    command:
+      required: true
+      example: input keyevent 26
+      selector:
+        text:
