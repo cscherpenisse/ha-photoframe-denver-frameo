@@ -66,6 +66,7 @@ class FrameoCoordinator(DataUpdateCoordinator):
                 "screen_brightness": (
                     screen_brightness
                 ),
+                "available": True,
             }
 
         except Exception as err:
@@ -80,4 +81,5 @@ class FrameoCoordinator(DataUpdateCoordinator):
                 "rgb": (0, 0, 0),
                 "is_on": False,
                 "screen_brightness": 127,
+                "available": False,
             }
