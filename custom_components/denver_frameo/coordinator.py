@@ -39,6 +39,7 @@ class FrameoCoordinator(DataUpdateCoordinator):
                 "brightness": br,
                 "rgb": (r, g, b),
                 "is_on": br > 0,
+                "screen_brightness": screen_brightness,
             }
 
         except Exception as err:        
