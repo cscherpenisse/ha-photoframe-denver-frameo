@@ -9,7 +9,11 @@ from adb_shell.exceptions import (
 
 
 class FrameoADB:
-    def __init__(self, host: str, port: int):
+    def __init__(
+        self,
+        host: str,
+        port: int,
+    ):
         self.host = host
         self.port = port
 
@@ -25,7 +29,7 @@ class FrameoADB:
     # --------------------------------------------------
 
     async def connect(self):
-        """Connect to ADB device."""
+        """Connect to ADB."""
 
         try:
             await self.device.connect(
@@ -35,12 +39,15 @@ class FrameoADB:
 
             self.connected = True
 
+        except asyncio.CancelledError:
+            raise
+
         except Exception:
             self.connected = False
             raise
 
     async def ensure_connected(self):
-        """Ensure ADB connection with retries."""
+        """Ensure ADB connection."""
 
         if self.connected:
             return
@@ -50,17 +57,20 @@ class FrameoADB:
                 await self.connect()
                 return
 
+            except asyncio.CancelledError:
+                raise
+
             except Exception:
                 await asyncio.sleep(1)
 
         self.connected = False
 
         raise AdbConnectionError(
-            "Unable to connect to Frameo device"
+            "Unable to connect to Frameo"
         )
 
     async def reconnect(self):
-        """Fully recreate ADB connection."""
+        """Reconnect completely."""
 
         self.connected = False
 
@@ -75,24 +85,34 @@ class FrameoADB:
     # SHELL COMMANDS
     # --------------------------------------------------
 
-    async def shell(self, command: str):
-        """Execute shell command with auto reconnect."""
+    async def shell(
+        self,
+        command: str,
+    ):
+        """Execute shell command safely."""
 
         try:
             await self.ensure_connected()
 
-            return await self.device.shell(command)
+            return await self.device.shell(
+                command
+            )
+
+        except asyncio.CancelledError:
+            raise
 
         except Exception:
-            # Most likely:
+            # Connection probably died:
             # - reboot
+            # - adb restart
             # - wifi reconnect
             # - socket reset
-            # - adb daemon restart
 
             await self.reconnect()
 
-            return await self.device.shell(command)
+            return await self.device.shell(
+                command
+            )
 
     # --------------------------------------------------
     # LED CONTROL
@@ -107,6 +127,9 @@ class FrameoADB:
             )
 
             return raw.strip()
+
+        except asyncio.CancelledError:
+            raise
 
         except Exception:
             return "<0,0,0,0>"
@@ -132,7 +155,7 @@ class FrameoADB:
     # --------------------------------------------------
 
     async def toggle_screen(self):
-        """Toggle screen power."""
+        """Toggle display power."""
 
         await self.shell(
             "input keyevent 26"
@@ -142,7 +165,8 @@ class FrameoADB:
         """Get Android brightness."""
 
         result = await self.shell(
-            "settings get system screen_brightness"
+            "settings get system "
+            "screen_brightness"
         )
 
         try:
@@ -163,6 +187,34 @@ class FrameoADB:
         )
 
     # --------------------------------------------------
+    # FOREGROUND APP
+    # --------------------------------------------------
+
+    async def get_foreground_app(self):
+        """Get active foreground app."""
+
+        result = await self.shell(
+            "dumpsys window windows "
+            "| grep mCurrentFocus"
+        )
+
+        try:
+            line = result.strip()
+
+            if "/" in line:
+                activity = (
+                    line.split("/")[0]
+                    .split()[-1]
+                )
+
+                return activity
+
+        except Exception:
+            pass
+
+        return "unknown"
+
+    # --------------------------------------------------
     # APP LAUNCHING
     # --------------------------------------------------
 
@@ -175,7 +227,7 @@ class FrameoADB:
         )
 
     async def start_frameo(self):
-        """Launch Frameo app."""
+        """Launch Frameo."""
 
         await self.shell(
             "am start -n "
