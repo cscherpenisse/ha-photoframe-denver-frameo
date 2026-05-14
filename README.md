@@ -10,10 +10,19 @@ Features:
 - Denver PFF support
 - Frameo support
 
-Install through HACS custom repositories.
-
 Tested devices: Denver PFF-1082
 
+# Installation
+HACS 
+1. Open HACS in Home Assistant
+2. Click on the three dots in the top right corner
+3. Select Custom repositories
+4. Add the repository URL: https://github.com/cscherpenisse/ha-photoframe-denver-frameo
+5. Select Integration as the category
+6. Click Add
+7. Search for "Denver Frameo Photoframe" in HACS and install it
+8. Restart Home Assistant
+9. Add the integration via Settings → Devices & Services → Add Integration
 
 ======================================================================================
 Stappenplan installeren Kiosk App
@@ -46,7 +55,7 @@ Standaard opstarten adb via wifi instellen
 - ./adb reboot
 - ./adb connect 192.168.xx.xx:5555
 
-Aansturen ledrand photframe
+Aansturen ledrand photoframe
 - adb inschakelen via wifi (bovenstaande stappen)
 - ./adb shell "echo '<95,255,255,48>' > /sdcard/frameo_light.txt" (<brightness,r,g,b>)
 - ./adb shell "echo '<0,0,0,0>' > /sdcard/frameo_light.txt" (Uit)
