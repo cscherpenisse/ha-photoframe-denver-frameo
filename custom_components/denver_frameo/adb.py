@@ -189,7 +189,8 @@ async def create_screenshot(self):
     )
 
 
-async def read_screenshot(self):  
+async def read_screenshot(self):
+    """Read screenshot file safely."""
 
     async with self.lock:
 
