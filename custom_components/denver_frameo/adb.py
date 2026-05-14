@@ -13,44 +13,50 @@ class FrameoADB:
     ):
         self.host = host
         self.port = port
+        
+        self.lock = asyncio.Lock()
 
     # --------------------------------------------------
     # LOW LEVEL SHELL
     # --------------------------------------------------
 
+
     async def shell(
         self,
         command: str,
     ):
-        """Execute one-off ADB command."""
+        
+        async with self.lock:
 
-        device = AdbDeviceTcpAsync(
+            device = AdbDeviceTcpAsync(
             self.host,
             self.port,
-        )
-
-        try:
-            await asyncio.wait_for(
-                device.connect(
-                    rsa_keys=[],
-                    auth_timeout_s=3,
-                ),
-                timeout=5,
             )
 
-            result = await asyncio.wait_for(
-                device.shell(command),
-                timeout=10,
-            )
-
-            return result
-
-        finally:
             try:
-                await device.close()
+                await asyncio.wait_for(
+                    device.connect(
+                        rsa_keys=[],
+                        auth_timeout_s=3,
+                    ),
+                    timeout=5,
+                )
 
-            except Exception:
-                pass
+                result = await asyncio.wait_for(
+                    device.shell(command),
+                    timeout=10,
+                )
+
+                return result
+
+            finally:
+                try:
+                    await device.close()
+
+                except Exception:
+                    pass
+
+
 
     # --------------------------------------------------
     # LED CONTROL
@@ -173,10 +179,42 @@ class FrameoADB:
     # SCREENSHOT
     # --------------------------------------------------
 
-    async def create_screenshot(self):
-        """Create screenshot."""
+async def create_screenshot(self):
+    """Create screenshot safely."""
 
-        await self.shell(
-            "screencap -p "
+    await self.shell(
+        "screencap -p "
+        "/sdcard/frameo_screen.png"
+    )
+
+
+async def read_screenshot(self):
+    """Read screenshot binary safely."""
+
+    device = AdbDeviceTcpAsync(
+        self.host,
+        self.port,
+    )
+
+    try:
+        await asyncio.wait_for(
+            device.connect(
+                rsa_keys=[],
+                auth_timeout_s=3,
+            ),
+            timeout=5,
+        )
+
+        # IMPORTANT:
+        # Use pull instead of shell output
+        data = await device.pull(
             "/sdcard/frameo_screen.png"
         )
+
+        return data
+
+    finally:
+        try:
+            await device.close()
+        except Exception:
+            pass
