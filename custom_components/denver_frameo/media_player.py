@@ -20,6 +20,29 @@ from .device import get_device_info
 SCREENSHOT_INTERVAL = timedelta(seconds=15)
 
 async def async_setup_entry(
+    hass,
+    entry,
+    async_add_entities,
+):
+    coordinator = hass.data[DOMAIN][
+        entry.entry_id
+    ]
+
+    async_add_entities([
+        FrameoMediaPlayer(coordinator, hass),
+    ])
+
+
+class FrameoMediaPlayer(
+    CoordinatorEntity,
+    MediaPlayerEntity,
+):
+    """Denver Frameo media player."""
+
+    _attr_name = "Screen"
+
+    _attr_supported_features = (
+        MediaPlayerEntityFeature.TURN_ON
         | MediaPlayerEntityFeature.TURN_OFF
     )
 
