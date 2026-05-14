@@ -166,7 +166,7 @@ class FrameoADB:
 
         await self.shell(
             "am start -n "
-            "com.frameo.app/.MainActivity"
+            "net.frameo.frame/.MainActivity"
         )
 
     # --------------------------------------------------
