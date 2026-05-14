@@ -1,4 +1,6 @@
 import asyncio
+import os
+import tempfile
 
 from adb_shell.adb_device_async import (
     AdbDeviceTcpAsync,
@@ -179,8 +181,7 @@ class FrameoADB:
     # SCREENSHOT
     # --------------------------------------------------
 
-async def create_screenshot(self):
-    """Create screenshot safely."""
+async def create_screenshot(self):   
 
     await self.shell(
         "screencap -p "
@@ -188,33 +189,50 @@ async def create_screenshot(self):
     )
 
 
-async def read_screenshot(self):
-    """Read screenshot binary safely."""
+async def read_screenshot(self):  
 
-    device = AdbDeviceTcpAsync(
-        self.host,
-        self.port,
-    )
+    async with self.lock:
 
-    try:
-        await asyncio.wait_for(
-            device.connect(
-                rsa_keys=[],
-                auth_timeout_s=3,
-            ),
-            timeout=5,
+        device = AdbDeviceTcpAsync(
+            self.host,
+            self.port,
         )
 
-        # IMPORTANT:
-        # Use pull instead of shell output
-        data = await device.pull(
-            "/sdcard/frameo_screen.png"
-        )
-
-        return data
-
-    finally:
         try:
-            await device.close()
-        except Exception:
-            pass
+            await asyncio.wait_for(
+                device.connect(
+                    rsa_keys=[],
+                    auth_timeout_s=3,
+                ),
+                timeout=5,
+            )
+
+            import tempfile
+
+            temp_file = tempfile.NamedTemporaryFile(
+                suffix=".png",
+                delete=False,
+            )
+
+            temp_path = temp_file.name
+
+            temp_file.close()
+
+            await device.pull(
+                "/sdcard/frameo_screen.png",
+                temp_path,
+            )
+
+            with open(temp_path, "rb") as file:
+                data = file.read()
+
+            os.remove(temp_path)
+
+            return data
+
+        finally:
+            try:
+                await device.close()
+
+            except Exception:
+                pass
