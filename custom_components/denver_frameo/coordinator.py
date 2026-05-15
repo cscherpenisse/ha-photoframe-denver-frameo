@@ -9,6 +9,7 @@ from homeassistant.helpers.update_coordinator import (
 from .adb import FrameoADB
 from .const import SCAN_INTERVAL
 
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -37,56 +38,20 @@ class FrameoCoordinator(DataUpdateCoordinator):
     # --------------------------------------------------
 
     async def _async_update_data(self):
-        """Fetch Frameo state."""
+        """Fetch device state safely."""
 
         # ---------------------------------
-        # DEFAULT VALUES
+        # DEFAULT STATE (IMPORTANT)
         # ---------------------------------
 
         brightness = 0
         rgb = (0, 0, 0)
-
         screen_brightness = 127
-
         foreground_app = "unknown"
-
         available = False
 
-        screen_on = False
-
-        screenshot = None
-
         # ---------------------------------
-        # ENSURE ADB CONNECTED
-        # ---------------------------------
-
-        try:
-            await asyncio.wait_for(
-                self.adb.ensure_connected(),
-                timeout=5,
-            )
-
-            available = True
-
-        except Exception as err:
-            LOGGER.warning(
-                "ADB connection failed: %s",
-                err,
-            )
-
-            return {
-                "brightness": brightness,
-                "rgb": rgb,
-                "is_on": False,
-                "screen_on": False,
-                "screen_brightness": screen_brightness,
-                "foreground_app": foreground_app,
-                "available": False,
-                "screenshot": None,
-            }
-
-        # ---------------------------------
-        # LED STATE
+        # LED STATE (SAFE)
         # ---------------------------------
 
         try:
@@ -97,13 +62,11 @@ class FrameoCoordinator(DataUpdateCoordinator):
 
             raw = raw.strip("<>")
 
-            br, r, g, b = map(
-                int,
-                raw.split(","),
-            )
+            br, r, g, b = map(int, raw.split(","))
 
             brightness = br
             rgb = (r, g, b)
+            available = True
 
         except Exception as err:
             LOGGER.debug(
@@ -112,23 +75,7 @@ class FrameoCoordinator(DataUpdateCoordinator):
             )
 
         # ---------------------------------
-        # SCREEN POWER STATE
-        # ---------------------------------
-
-        try:
-            screen_on = await asyncio.wait_for(
-                self.adb.is_screen_on(),
-                timeout=3,
-            )
-
-        except Exception as err:
-            LOGGER.debug(
-                "Screen state failed: %s",
-                err,
-            )
-
-        # ---------------------------------
-        # SCREEN BRIGHTNESS
+        # SCREEN BRIGHTNESS (SAFE)
         # ---------------------------------
 
         try:
@@ -144,7 +91,7 @@ class FrameoCoordinator(DataUpdateCoordinator):
             )
 
         # ---------------------------------
-        # FOREGROUND APP
+        # FOREGROUND APP (SAFE + LIGHTWEIGHT)
         # ---------------------------------
 
         try:
@@ -160,51 +107,30 @@ class FrameoCoordinator(DataUpdateCoordinator):
             )
 
         # ---------------------------------
-        # SCREENSHOT
-        # ---------------------------------
-
-        try:
-            if screen_on:
-                screenshot = await asyncio.wait_for(
-                    self.adb.get_screenshot(),
-                    timeout=15,
-                )
-
-        except Exception as err:
-            LOGGER.debug(
-                "Screenshot failed: %s",
-                err,
-            )
-
-        # ---------------------------------
-        # FINAL DATA
+        # FINAL RETURN
         # ---------------------------------
 
         return {
             "brightness": brightness,
             "rgb": rgb,
             "is_on": brightness > 0,
-            "screen_on": screen_on,
             "screen_brightness": screen_brightness,
             "foreground_app": foreground_app,
             "available": available,
-            "screenshot": screenshot,
         }
 
     # --------------------------------------------------
-    # OPTIONAL FALLBACK
+    # SAFE FALLBACK
     # --------------------------------------------------
 
     async def _async_update_data_fallback(self):
-        """Fallback state."""
+        """Optional fallback state (not used by HA but useful conceptually)."""
 
         return {
             "brightness": 0,
             "rgb": (0, 0, 0),
             "is_on": False,
-            "screen_on": False,
             "screen_brightness": 127,
             "foreground_app": "unknown",
             "available": False,
-            "screenshot": None,
         }
