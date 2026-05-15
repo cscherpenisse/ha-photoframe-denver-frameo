@@ -123,7 +123,20 @@ class FrameoMediaPlayer(
 
         try:
             await self.coordinator.adb.ensure_connected()
+            
+            # ---------------------------------
+            # SCREEN STATE
+            # ---------------------------------
 
+            screen_on = (
+                await self.coordinator.adb.is_screen_on()
+            )
+
+            if screen_on:
+                self._state = MediaPlayerState.ON
+            else:
+                self._state = MediaPlayerState.OFF
+            
             # ---------------------------------
             # CREATE SCREENSHOT
             # ---------------------------------
