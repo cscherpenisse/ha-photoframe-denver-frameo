@@ -199,59 +199,59 @@ class FrameoADB:
     # SCREENSHOT
     # --------------------------------------------------
 
-async def create_screenshot(self):   
+    async def create_screenshot(self):   
 
-    await self.shell(
-        "screencap -p "
-        "/sdcard/frameo_screen.png"
-    )
-
-
-async def read_screenshot(self):
-    """Read screenshot file safely."""
-
-    async with self.lock:
-
-        device = AdbDeviceTcpAsync(
-            self.host,
-            self.port,
+        await self.shell(
+            "screencap -p "
+            "/sdcard/frameo_screen.png"
         )
 
-        try:
-            await asyncio.wait_for(
-                device.connect(
-                    rsa_keys=[],
-                    auth_timeout_s=3,
-                ),
-                timeout=5,
+
+    async def read_screenshot(self):
+        """Read screenshot file safely."""
+
+        async with self.lock:
+
+            device = AdbDeviceTcpAsync(
+                self.host,
+                self.port,
             )
 
-            import tempfile
-
-            temp_file = tempfile.NamedTemporaryFile(
-                suffix=".png",
-                delete=False,
-            )
-
-            temp_path = temp_file.name
-
-            temp_file.close()
-
-            await device.pull(
-                "/sdcard/frameo_screen.png",
-                temp_path,
-            )
-
-            with open(temp_path, "rb") as file:
-                data = file.read()
-
-            os.remove(temp_path)
-
-            return data
-
-        finally:
             try:
-                await device.close()
+                await asyncio.wait_for(
+                    device.connect(
+                        rsa_keys=[],
+                        auth_timeout_s=3,
+                    ),
+                    timeout=5,
+                )
 
-            except Exception:
-                pass
+                import tempfile
+
+                temp_file = tempfile.NamedTemporaryFile(
+                    suffix=".png",
+                    delete=False,
+                )
+
+                temp_path = temp_file.name
+
+                temp_file.close()
+
+                await device.pull(
+                    "/sdcard/frameo_screen.png",
+                    temp_path,
+                )
+
+                with open(temp_path, "rb") as file:
+                    data = file.read()
+
+                os.remove(temp_path)
+
+                return data
+
+            finally:
+                try:
+                    await device.close()
+
+                except Exception:
+                    pass
