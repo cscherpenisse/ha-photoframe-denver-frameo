@@ -180,7 +180,6 @@ class FrameoMediaPlayer(
     # --------------------------------------------------
     # EXTRA ATTRIBUTES
     # --------------------------------------------------
-
     @property
     def extra_state_attributes(self):
         """Extra attributes."""
@@ -189,5 +188,7 @@ class FrameoMediaPlayer(
             "foreground_app": self.coordinator.data.get(
                 "foreground_app"
             ),
-            "ip_address": self.coordinator.host,
+            "ip_address": self.coordinator.config_entry.data.get(
+                "host"
+            ),
         }
