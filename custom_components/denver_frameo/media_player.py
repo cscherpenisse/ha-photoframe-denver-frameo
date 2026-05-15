@@ -35,11 +35,10 @@ async def async_setup_entry(
         )
     ])
 
-
 class FrameoMediaPlayer(
-    CoordinatorEntity,
     MediaPlayerEntity,
 ):
+
     """Denver Frameo media player."""
 
     _attr_name = "Screen"
