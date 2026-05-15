@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 import hashlib
 import logging
 
@@ -7,9 +7,7 @@ from homeassistant.components.media_player import (
     MediaPlayerEntityFeature,
     MediaPlayerState,
 )
-from homeassistant.helpers.update_coordinator import (
-    CoordinatorEntity,
-)
+from homeassistant.const import STATE_OFF, STATE_ON
 from homeassistant.util.dt import utcnow
 
 from .const import DOMAIN
@@ -17,7 +15,7 @@ from .device import get_device_info
 
 LOGGER = logging.getLogger(__name__)
 
-SCREENSHOT_INTERVAL = 15
+SCAN_INTERVAL = timedelta(seconds=15)
 
 
 async def async_setup_entry(
@@ -25,20 +23,24 @@ async def async_setup_entry(
     entry,
     async_add_entities,
 ):
+    """Setup media player."""
+
     coordinator = hass.data[DOMAIN][
         entry.entry_id
     ]
 
-    async_add_entities([
-        FrameoMediaPlayer(
-            coordinator
-        )
-    ])
+    async_add_entities(
+        [
+            FrameoMediaPlayer(
+                coordinator
+            )
+        ]
+    )
+
 
 class FrameoMediaPlayer(
     MediaPlayerEntity,
 ):
-
     """Denver Frameo media player."""
 
     _attr_name = "Screen"
@@ -48,13 +50,15 @@ class FrameoMediaPlayer(
         MediaPlayerEntityFeature.TURN_OFF
     )
 
-
+    _attr_should_poll = True
 
     def __init__(
         self,
         coordinator,
     ):
-        super().__init__(coordinator)
+        """Init."""
+
+        self.coordinator = coordinator
 
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_media"
@@ -66,10 +70,6 @@ class FrameoMediaPlayer(
             )
         )
 
-        self._attr_state = (
-            MediaPlayerState.ON
-        )
-
         self._media_image = (
             None,
             None,
@@ -79,10 +79,17 @@ class FrameoMediaPlayer(
 
         self._last_screencap = None
 
-        self._screencap_delta = (
-            timedelta(
-                seconds=SCREENSHOT_INTERVAL
-            )
+        self._available = True
+
+    # --------------------------------------------------
+    # AVAILABILITY
+    # --------------------------------------------------
+
+    @property
+    def available(self):
+        return self.coordinator.data.get(
+            "available",
+            False,
         )
 
     # --------------------------------------------------
@@ -91,10 +98,7 @@ class FrameoMediaPlayer(
 
     @property
     def state(self):
-        if self.coordinator.data.get(
-            "available",
-            False,
-        ):
+        if self.available:
             return MediaPlayerState.ON
 
         return MediaPlayerState.OFF
@@ -106,6 +110,8 @@ class FrameoMediaPlayer(
     async def async_get_media_image(
         self,
     ):
+        """Return cached image."""
+
         return self._media_image
 
     # --------------------------------------------------
@@ -113,25 +119,14 @@ class FrameoMediaPlayer(
     # --------------------------------------------------
 
     async def async_update(self):
-        """Update screenshot."""
+        """Update media player."""
 
         if not self.available:
             return
 
-        time_elapsed = (
-            self._last_screencap is None
-            or (
-                utcnow()
-                - self._last_screencap
-            ) >= self._screencap_delta
-        )
-
-        if not time_elapsed:
-            return
-
-        self._last_screencap = utcnow()
-
         try:
+            await self.coordinator.adb.ensure_connected()
+
             # ---------------------------------
             # CREATE SCREENSHOT
             # ---------------------------------
@@ -147,7 +142,7 @@ class FrameoMediaPlayer(
             )
 
             # ---------------------------------
-            # CACHE IMAGE
+            # SAVE IMAGE
             # ---------------------------------
 
             if data:
@@ -169,11 +164,30 @@ class FrameoMediaPlayer(
             )
 
     # --------------------------------------------------
-    # POWER
+    # TURN ON/OFF
     # --------------------------------------------------
 
     async def async_turn_on(self):
+        """Turn screen on."""
+
         await self.coordinator.adb.toggle_screen()
 
     async def async_turn_off(self):
+        """Turn screen off."""
+
         await self.coordinator.adb.toggle_screen()
+
+    # --------------------------------------------------
+    # EXTRA ATTRIBUTES
+    # --------------------------------------------------
+
+    @property
+    def extra_state_attributes(self):
+        """Extra attributes."""
+
+        return {
+            "foreground_app": self.coordinator.data.get(
+                "foreground_app"
+            ),
+            "ip_address": self.coordinator.host,
+        }
