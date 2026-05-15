@@ -5,7 +5,12 @@ import logging
 from homeassistant.components.media_player import (
     MediaPlayerEntity,
     MediaPlayerEntityFeature,
-    MediaPlayerState,
+)
+
+from homeassistant.const import (
+    STATE_OFF,
+    STATE_ON,
+    STATE_UNAVAILABLE,
 )
 
 from .const import DOMAIN
@@ -16,11 +21,20 @@ LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=10)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass,
+    entry,
+    async_add_entities,
+):
+    """Setup media player."""
+
     coordinator = hass.data[DOMAIN][entry.entry_id]
 
     async_add_entities(
-        [FrameoMediaPlayer(coordinator)]
+        [
+            FrameoMediaPlayer(coordinator)
+        ],
+        True,
     )
 
 
@@ -28,67 +42,84 @@ class FrameoMediaPlayer(MediaPlayerEntity):
     """Denver Frameo media player."""
 
     _attr_name = "Frameo Screen"
+
+    _attr_should_poll = True
+
+    _attr_media_image_remotely_accessible = False
+
     _attr_supported_features = (
-        MediaPlayerEntityFeature.TURN_ON |
-        MediaPlayerEntityFeature.TURN_OFF
+        MediaPlayerEntityFeature.TURN_ON
+        | MediaPlayerEntityFeature.TURN_OFF
     )
 
     def __init__(self, coordinator):
+        """Init."""
+
         self.coordinator = coordinator
 
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_media"
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_media"
+        )
 
         self._attr_device_info = get_device_info(
             coordinator.config_entry
         )
 
-        self._media_image = (None, None)
+        self._media_image = (
+            None,
+            None,
+        )
+
         self._attr_media_image_hash = None
 
-        self._attr_state = MediaPlayerState.OFF
-
-    # -------------------------
+    # --------------------------------------------------
     # AVAILABILITY
-    # -------------------------
+    # --------------------------------------------------
 
     @property
     def available(self):
-        return bool(self.coordinator.data)
+        """Return availability."""
 
-    # -------------------------
-    # STATE (BELANGRIJK)
-    # -------------------------
+        data = self.coordinator.data or {}
+
+        return data.get(
+            "available",
+            False,
+        )
+
+    # --------------------------------------------------
+    # STATE
+    # --------------------------------------------------
 
     @property
     def state(self):
+        """Return state."""
+
         data = self.coordinator.data or {}
 
         if not data.get("available"):
-            return MediaPlayerState.UNAVAILABLE
+            return STATE_UNAVAILABLE
 
-        return (
-            MediaPlayerState.ON
-            if data.get("screen_on", False)
-            else MediaPlayerState.OFF
-        )
+        if data.get("screen_on", False):
+            return STATE_ON
 
-    # -------------------------
-    # SCREENSHOT
-    # -------------------------
+        return STATE_OFF
 
-    @property
-    def media_image(self):
-        return self._media_image
+    # --------------------------------------------------
+    # MEDIA IMAGE
+    # --------------------------------------------------
 
     async def async_get_media_image(self):
+        """Return current screenshot."""
+
         return self._media_image
 
-    # -------------------------
-    # UPDATE (ALLEEN COORDINATOR)
-    # -------------------------
+    # --------------------------------------------------
+    # UPDATE
+    # --------------------------------------------------
 
     async def async_update(self):
-        """Do NOT do ADB here in final architecture."""
+        """Update from coordinator only."""
 
         try:
             await self.coordinator.async_request_refresh()
@@ -98,34 +129,59 @@ class FrameoMediaPlayer(MediaPlayerEntity):
             image = data.get("screenshot")
 
             if image:
-                self._media_image = (image, "image/png")
-                self._attr_media_image_hash = hashlib.sha256(image).hexdigest()[:16]
+                self._media_image = (
+                    image,
+                    "image/png",
+                )
+
+                self._attr_media_image_hash = (
+                    hashlib.sha256(image)
+                    .hexdigest()[:16]
+                )
 
         except Exception as err:
-            LOGGER.warning("Media update failed: %s", err)
+            LOGGER.warning(
+                "Media update failed: %s",
+                err,
+            )
 
-    # -------------------------
-    # TURN ON/OFF
-    # -------------------------
+    # --------------------------------------------------
+    # TURN ON
+    # --------------------------------------------------
 
     async def async_turn_on(self):
+        """Turn screen on."""
+
         await self.coordinator.adb.toggle_screen()
+
         await self.coordinator.async_request_refresh()
 
+    # --------------------------------------------------
+    # TURN OFF
+    # --------------------------------------------------
 
     async def async_turn_off(self):
+        """Turn screen off."""
+
         await self.coordinator.adb.toggle_screen()
+
         await self.coordinator.async_request_refresh()
-    
-    # -------------------------
-    # ATTRIBUTES
-    # -------------------------
+
+    # --------------------------------------------------
+    # EXTRA ATTRIBUTES
+    # --------------------------------------------------
 
     @property
     def extra_state_attributes(self):
+        """Extra attributes."""
+
         data = self.coordinator.data or {}
 
         return {
-            "foreground_app": data.get("foreground_app"),
-            "ip_address": self.coordinator.config_entry.data.get("host"),
+            "foreground_app": data.get(
+                "foreground_app"
+            ),
+            "ip_address": self.coordinator.config_entry.data.get(
+                "host"
+            ),
         }
