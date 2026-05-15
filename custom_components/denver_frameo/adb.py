@@ -1,8 +1,9 @@
+import os
 import asyncio
 import logging
 import tempfile
 from pathlib import Path
-
+from adb_shell.adb_device import AdbDeviceTcp
 from adb_shell.adb_device_async import AdbDeviceAsync
 from adb_shell.transport.tcp_transport_async import TcpTransportAsync
 
@@ -28,7 +29,36 @@ class FrameoADB:
         self.signer = None
 
         self.connected = False
+        
+    # --------------------------------------------------
+    # CREATE ADB KEY
+    # --------------------------------------------------
 
+    def load_signer(self):
+        """Load or create ADB key."""
+
+        key_path = "/config/.storage/adbkey"
+
+        pub_path = f"{key_path}.pub"
+
+        # ---------------------------------
+        # CREATE KEY IF MISSING
+        # ---------------------------------
+
+        if not os.path.exists(key_path):
+
+            from adb_shell.auth.keygen import keygen
+
+            keygen(key_path)
+
+        with open(key_path) as private_key:
+            priv = private_key.read()
+
+        with open(pub_path) as public_key:
+            pub = public_key.read()
+
+        return PythonRSASigner(pub, priv)
+    
     # --------------------------------------------------
     # CONNECT
     # --------------------------------------------------
@@ -36,28 +66,17 @@ class FrameoADB:
     async def connect(self):
         """Connect to device."""
 
-        if self.connected:
+        if self._connected:
             return
 
-        key_path = "/config/.storage/adbkey"
+        self.signer = self.load_signer()
 
-        with open(key_path) as f:
-            priv = f.read()
-
-        with open(f"{key_path}.pub") as f:
-            pub = f.read()
-
-        self.signer = PythonRSASigner(pub, priv)
-
-        await asyncio.wait_for(
-            self.device.connect(
-                rsa_keys=[self.signer],
-                auth_timeout_s=10,
-            ),
-            timeout=15,
+        await self.device.connect(
+            rsa_keys=[self.signer],
+            auth_timeout_s=5,
         )
 
-        self.connected = True
+        self._connected = True
 
     async def disconnect(self):
         """Disconnect."""
