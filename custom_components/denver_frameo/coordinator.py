@@ -169,7 +169,7 @@ class FrameoCoordinator(DataUpdateCoordinator):
             "brightness": 0,
             "rgb": (0, 0, 0),
             "is_on": False,
-            "screen_on": False,
+            "screen_on": True,
             "screen_brightness": 127,
             "foreground_app": "unknown",
             "available": False,
