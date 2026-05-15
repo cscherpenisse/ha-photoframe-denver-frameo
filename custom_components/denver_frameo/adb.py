@@ -104,12 +104,12 @@ class FrameoADB:
             "dumpsys power | grep 'Display Power'"
         )
 
-    result = result.lower()
+        result = result.lower()
 
-    return (
-        "state=on" in result
-        or "on" in result
-    )    
+        return (
+            "state=on" in result
+            or "on" in result
+        )    
     
     # --------------------------------------------------
     # SCREEN CONTROL
