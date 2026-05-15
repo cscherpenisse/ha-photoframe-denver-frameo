@@ -5,8 +5,6 @@ from homeassistant.exceptions import HomeAssistantError
 from .const import DOMAIN
 from .coordinator import FrameoCoordinator
 
-self._state = MediaPlayerState.OFF
-
 PLATFORMS = [
     "light",
     "switch",
