@@ -61,13 +61,14 @@ class FrameoMediaPlayer(MediaPlayerEntity):
 
     @property
     def state(self):
-        """Return ON/OFF based on coordinator."""
-        if not self.coordinator.data:
-            return MediaPlayerState.OFF
+        data = self.coordinator.data or {}
+
+        if not data.get("available"):
+            return MediaPlayerState.UNAVAILABLE
 
         return (
             MediaPlayerState.ON
-            if self.coordinator.data.get("screen_on")
+            if data.get("screen_on", False)
             else MediaPlayerState.OFF
         )
 
@@ -109,10 +110,13 @@ class FrameoMediaPlayer(MediaPlayerEntity):
 
     async def async_turn_on(self):
         await self.coordinator.adb.toggle_screen()
+        await self.coordinator.async_request_refresh()
+
 
     async def async_turn_off(self):
         await self.coordinator.adb.toggle_screen()
-
+        await self.coordinator.async_request_refresh()
+    
     # -------------------------
     # ATTRIBUTES
     # -------------------------
