@@ -1,23 +1,24 @@
-from __future__ import annotations
-
-import os
-from datetime import timedelta
+from datetime import datetime, timedelta
+import hashlib
+import logging
 
 from homeassistant.components.media_player import (
     MediaPlayerEntity,
-)
-from homeassistant.components.media_player.const import (
     MediaPlayerEntityFeature,
+    MediaPlayerState,
 )
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
 )
+from homeassistant.util.dt import utcnow
 
 from .const import DOMAIN
 from .device import get_device_info
 
-SCREENSHOT_INTERVAL = timedelta(seconds=15)
+LOGGER = logging.getLogger(__name__)
+
+SCREENSHOT_INTERVAL = 15
+
 
 async def async_setup_entry(
     hass,
@@ -29,7 +30,9 @@ async def async_setup_entry(
     ]
 
     async_add_entities([
-        FrameoMediaPlayer(coordinator, hass),
+        FrameoMediaPlayer(
+            coordinator
+        )
     ])
 
 
@@ -42,22 +45,19 @@ class FrameoMediaPlayer(
     _attr_name = "Screen"
 
     _attr_supported_features = (
-        MediaPlayerEntityFeature.TURN_ON
-        | MediaPlayerEntityFeature.TURN_OFF
-    )
-
-    _attr_entity_category = (
-        EntityCategory.DIAGNOSTIC
+        MediaPlayerEntityFeature.TURN_ON +
+        MediaPlayerEntityFeature.TURN_OFF
     )
 
     def __init__(
         self,
         coordinator,
-        hass,
     ):
         super().__init__(coordinator)
 
-        self.hass = hass
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_media"
+        )
 
         self._attr_device_info = (
             get_device_info(
@@ -65,16 +65,23 @@ class FrameoMediaPlayer(
             )
         )
 
-        self._attr_unique_id = (
-            f"{coordinator.config_entry.entry_id}_media"
+        self._attr_state = (
+            MediaPlayerState.ON
         )
 
-        self._image = None
+        self._media_image = (
+            None,
+            None,
+        )
 
-        self._last_image_update = None
+        self._attr_media_image_hash = None
 
-        self._attr_media_image_remotely_accessible = (
-            False
+        self._last_screencap = None
+
+        self._screencap_delta = (
+            timedelta(
+                seconds=SCREENSHOT_INTERVAL
+            )
         )
 
     # --------------------------------------------------
@@ -87,42 +94,81 @@ class FrameoMediaPlayer(
             "available",
             False,
         ):
-            return "on"
+            return MediaPlayerState.ON
 
-        return "off"
+        return MediaPlayerState.OFF
 
     # --------------------------------------------------
-    # SCREENSHOT SUPPORT
+    # MEDIA IMAGE
     # --------------------------------------------------
 
-    @property
-    def media_image_url(self):
-        return (
-            f"/api/media_player_proxy/"
-            f"{self.entity_id}"
+    async def async_get_media_image(
+        self,
+    ):
+        return self._media_image
+
+    # --------------------------------------------------
+    # UPDATE
+    # --------------------------------------------------
+
+    async def async_update(self):
+        """Update screenshot."""
+
+        if not self.available:
+            return
+
+        time_elapsed = (
+            self._last_screencap is None
+            or (
+                utcnow()
+                - self._last_screencap
+            ) >= self._screencap_delta
         )
 
-    async def async_get_media_image(self):
-        """Return current screenshot."""
+        if not time_elapsed:
+            return
+
+        self._last_screencap = utcnow()
 
         try:
+            # ---------------------------------
+            # CREATE SCREENSHOT
+            # ---------------------------------
+
             await self.coordinator.adb.create_screenshot()
 
-            image = await self.coordinator.adb.read_screenshot()
+            # ---------------------------------
+            # READ SCREENSHOT
+            # ---------------------------------
 
-            if image:
-                self._image = image
+            data = (
+                await self.coordinator.adb.read_screenshot()
+            )
 
-        except Exception:
-            pass
+            # ---------------------------------
+            # CACHE IMAGE
+            # ---------------------------------
 
-        if self._image:
-            return self._image, "image/png"
+            if data:
+                self._media_image = (
+                    data,
+                    "image/png",
+                )
 
-        return None, None
+                self._attr_media_image_hash = (
+                    hashlib.sha256(
+                        data
+                    ).hexdigest()[:16]
+                )
+
+        except Exception as err:
+            LOGGER.debug(
+                "Screenshot failed: %s",
+                err,
+            )
 
     # --------------------------------------------------
-    # POWER CONTROL
+    # POWER
     # --------------------------------------------------
 
     async def async_turn_on(self):
