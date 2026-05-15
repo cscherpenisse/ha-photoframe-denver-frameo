@@ -59,7 +59,9 @@ class FrameoMediaPlayer(
         """Init."""
 
         self.coordinator = coordinator
-
+        
+        self._state = MediaPlayerState.OFF
+        
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_media"
         )
