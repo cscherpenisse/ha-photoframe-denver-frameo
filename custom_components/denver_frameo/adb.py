@@ -92,7 +92,25 @@ class FrameoADB:
         )
 
         await self.shell(cmd)
+        
+    # --------------------------------------------------
+    # SCREEN STATUS
+    # --------------------------------------------------
 
+    async def is_screen_on(self):
+        """Check if screen is on."""
+
+        result = await self.shell(
+            "dumpsys power | grep 'Display Power'"
+        )
+
+    result = result.lower()
+
+    return (
+        "state=on" in result
+        or "on" in result
+    )    
+    
     # --------------------------------------------------
     # SCREEN CONTROL
     # --------------------------------------------------
