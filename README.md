@@ -66,3 +66,7 @@ Commando's
 - ./adb reboot (herstarten)
 - ./adb shell am start -n de.ozerov.fully/.MainActivity (Fully Kiosk App opstarten)
 - ./adb shell settings put system screen_brightness 255 (helderheid scherm, 255=maximaal 0=minimaal)
+- ./adb shell screencap -p /sdcard/frameo_screen.png (Screenshot maken op device)
+- ./adb pull /sdcard/frameo_screen.png (Screenshot van device naar pc sturen in de map platform-tools)
+- ./adb shell("input keyevent 26") (Display + ledrand aan/uit zetten)
+- ./adb shell dumpsys power (Actuele status device opvragen)
