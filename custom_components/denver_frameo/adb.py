@@ -3,7 +3,9 @@ import logging
 import tempfile
 from pathlib import Path
 
-from adb_shell.adb_device_async import AdbDeviceTcp
+from adb_shell.adb_device_async import AdbDeviceAsync
+from adb_shell.transport.tcp_transport_async import TcpTransportAsync
+
 from adb_shell.auth.sign_pythonrsa import PythonRSASigner
 
 LOGGER = logging.getLogger(__name__)
@@ -14,7 +16,14 @@ class FrameoADB:
         self.host = host
         self.port = port
 
-        self.device = AdbDeviceTcp(host, port)
+        self.transport = TcpTransportAsync(
+            host,
+            port,
+        )
+
+        self.device = AdbDeviceAsync(
+            self.transport
+        )
 
         self.signer = None
 
