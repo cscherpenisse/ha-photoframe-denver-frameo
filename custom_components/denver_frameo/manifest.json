@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "documentation": "https://github.com/cscherpenisse/ha-photoframe-denver-frameo",
   "requirements": [
-    "adb-shell[async]==0.4.4"
+    "adb-shell==0.4.4"
   ],
   "codeowners": [
     "@cscherpenisse"
