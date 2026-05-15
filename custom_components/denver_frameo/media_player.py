@@ -98,11 +98,8 @@ class FrameoMediaPlayer(
 
     @property
     def state(self):
-        if self.available:
-            return MediaPlayerState.ON
-
-        return MediaPlayerState.OFF
-
+        return self._state
+        
     # --------------------------------------------------
     # MEDIA IMAGE
     # --------------------------------------------------
@@ -180,6 +177,7 @@ class FrameoMediaPlayer(
     # --------------------------------------------------
     # EXTRA ATTRIBUTES
     # --------------------------------------------------
+    
     @property
     def extra_state_attributes(self):
         """Extra attributes."""
