@@ -1,64 +1,48 @@
-import os
 import asyncio
-import logging
+import os
 import tempfile
-from pathlib import Path
+import logging
+
 from adb_shell.adb_device import AdbDeviceTcp
-from adb_shell.adb_device_async import AdbDeviceAsync
-from adb_shell.transport.tcp_transport_async import TcpTransportAsync
-
 from adb_shell.auth.sign_pythonrsa import PythonRSASigner
+from adb_shell.auth.keygen import keygen
 
-LOGGER = logging.getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 class FrameoADB:
-    def __init__(self, host, port):
+    """ADB handler for Denver Frameo."""
+
+    def __init__(self, host: str, port: int):
         self.host = host
         self.port = port
 
-        self.transport = TcpTransportAsync(
-            host,
-            port,
-        )
-
-        self.device = AdbDeviceAsync(
-            self.transport
-        )
-
+        self.device = None
         self.signer = None
+        self._connected = False
 
-        self.connected = False
-        
     # --------------------------------------------------
-    # CREATE ADB KEY
+    # KEY HANDLING
     # --------------------------------------------------
 
     def load_signer(self):
-        """Load or create ADB key."""
+        """Load or generate ADB key."""
 
         key_path = "/config/.storage/adbkey"
-
         pub_path = f"{key_path}.pub"
 
-        # ---------------------------------
-        # CREATE KEY IF MISSING
-        # ---------------------------------
-
         if not os.path.exists(key_path):
-
-            from adb_shell.auth.keygen import keygen
-
+            _LOGGER.warning("ADB key not found, generating new key...")
             keygen(key_path)
 
-        with open(key_path) as private_key:
-            priv = private_key.read()
+        with open(key_path, "r") as f:
+            priv = f.read()
 
-        with open(pub_path) as public_key:
-            pub = public_key.read()
+        with open(pub_path, "r") as f:
+            pub = f.read()
 
         return PythonRSASigner(pub, priv)
-    
+
     # --------------------------------------------------
     # CONNECT
     # --------------------------------------------------
@@ -66,10 +50,11 @@ class FrameoADB:
     async def connect(self):
         """Connect to device."""
 
-        if self._connected:
+        if self._connected and self.device:
             return
 
         self.signer = self.load_signer()
+        self.device = AdbDeviceTcp(self.host, self.port)
 
         await self.device.connect(
             rsa_keys=[self.signer],
@@ -78,175 +63,97 @@ class FrameoADB:
 
         self._connected = True
 
-    async def disconnect(self):
-        """Disconnect."""
-
-        try:
-            await self.device.close()
-        except Exception:
-            pass
-
-        self.connected = False
-
     async def ensure_connected(self):
-        """Reconnect automatically."""
+        """Ensure active connection."""
 
         try:
-            if not self.connected:
-                await self.connect()
-                return
-
-            await asyncio.wait_for(
-                self.device.shell("echo ok"),
-                timeout=5,
-            )
-
-        except Exception:
-            LOGGER.debug(
-                "ADB reconnect triggered"
-            )
-
-            self.connected = False
-
-            try:
-                await self.disconnect()
-            except Exception:
-                pass
-
             await self.connect()
+        except Exception as err:
+            _LOGGER.warning("ADB reconnect failed: %s", err)
+            self._connected = False
+            raise
 
     # --------------------------------------------------
     # SHELL
     # --------------------------------------------------
 
-    async def shell(self, command):
-        """Run adb shell command."""
+    async def shell(self, cmd: str):
+        """Run shell command."""
 
         await self.ensure_connected()
 
         try:
-            return await asyncio.wait_for(
-                self.device.shell(command),
-                timeout=10,
-            )
-
-        except Exception:
-            self.connected = False
+            return await self.device.shell(cmd)
+        except Exception as err:
+            _LOGGER.warning("ADB shell failed: %s", err)
+            self._connected = False
             raise
 
     # --------------------------------------------------
     # SCREEN STATE
     # --------------------------------------------------
 
-    async def is_screen_on(self):
-        """Check if display is ON."""
+    async def is_screen_on(self) -> bool:
+        """Check if screen is on."""
 
-        result = await self.shell(
-            "dumpsys power"
-        )
+        output = await self.shell("dumpsys power | grep mWakefulness")
 
-        result = result.lower()
-
-        return (
-            "display power: state=on" in result
-        )
+        return "Awake" in output or "Awake" in str(output)
 
     # --------------------------------------------------
-    # SCREENSHOT
+    # SCREENSHOT (IMPORTANT FIX)
     # --------------------------------------------------
 
-    async def create_screenshot(self):
-        """Create screenshot on device."""
-
-        await self.shell(
-            "screencap -p /sdcard/frameo_screen.png"
-        )
-
-    async def read_screenshot(self):
-        """Read screenshot binary."""
+    async def get_screenshot(self) -> bytes | None:
+        """Take screenshot via screencap + pull."""
 
         await self.ensure_connected()
 
-        temp_file = (
-            Path(tempfile.gettempdir())
-            / "frameo_screen.png"
-        )
+        remote_path = "/sdcard/frameo_screen.png"
 
-        loop = asyncio.get_running_loop()
+        try:
+            await self.device.shell(
+                f"screencap -p {remote_path}"
+            )
 
-        await loop.run_in_executor(
-            None,
-            lambda: self.device.pull(
-                "/sdcard/frameo_screen.png",
-                str(temp_file),
-            ),
-        )
+            with tempfile.NamedTemporaryFile(delete=False) as tmp:
+                local_path = tmp.name
 
-        if not temp_file.exists():
+            await self.device.pull(
+                remote_path,
+                local_path,
+            )
+
+            with open(local_path, "rb") as f:
+                data = f.read()
+
+            os.remove(local_path)
+
+            return data
+
+        except Exception as err:
+            _LOGGER.warning("Screenshot failed: %s", err)
+            self._connected = False
             return None
 
-        return temp_file.read_bytes()
-
     # --------------------------------------------------
-    # BRIGHTNESS
-    # --------------------------------------------------
-
-    async def get_screen_brightness(self):
-        """Get brightness."""
-
-        result = await self.shell(
-            "settings get system screen_brightness"
-        )
-
-        return int(result.strip())
-
-    async def set_screen_brightness(self, value):
-        """Set brightness."""
-
-        await self.shell(
-            f"settings put system screen_brightness {value}"
-        )
-
-    # --------------------------------------------------
-    # FOREGROUND APP
-    # --------------------------------------------------
-
-    async def get_foreground_app(self):
-        """Get foreground app."""
-
-        result = await self.shell(
-            "dumpsys window windows | grep mCurrentFocus"
-        )
-
-        return result.strip()
-
-    # --------------------------------------------------
-    # POWER
-    # --------------------------------------------------
-
-    async def toggle_screen(self):
-        """Toggle screen power."""
-
-        await self.shell(
-            "input keyevent 26"
-        )
-
-    # --------------------------------------------------
-    # LED
+    # SIMPLE COMMANDS
     # --------------------------------------------------
 
     async def read_led_state(self):
-        return await self.shell(
-            "cat /sdcard/frameo_light.txt"
-        )
+        return await self.shell("cat /sys/.../led")  # pas aan indien nodig
 
-    async def set_led_state(
-        self,
-        brightness,
-        r,
-        g,
-        b,
-    ):
-        await self.shell(
-            f'echo "<{brightness},{r},{g},{b}>" > /sdcard/frameo_light.txt'
-        )
+    async def get_screen_brightness(self):
+        return await self.shell("settings get system screen_brightness")
+
+    async def get_foreground_app(self):
+        return await self.shell("dumpsys window | grep mCurrentFocus")
+
+    # --------------------------------------------------
+    # OPTIONAL
+    # --------------------------------------------------
+
+    async def toggle_screen(self):
+        """Toggle screen via power key."""
+
+        await self.shell("input keyevent 26")
