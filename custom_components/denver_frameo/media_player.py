@@ -45,9 +45,11 @@ class FrameoMediaPlayer(
     _attr_name = "Screen"
 
     _attr_supported_features = (
-        MediaPlayerEntityFeature.TURN_ON +
+        MediaPlayerEntityFeature.TURN_ON |
         MediaPlayerEntityFeature.TURN_OFF
     )
+
+
 
     def __init__(
         self,
