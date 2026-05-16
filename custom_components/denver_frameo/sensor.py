@@ -23,12 +23,15 @@ async def async_setup_entry(
             FrameoBrightnessSensor(
                 coordinator
             ),
+
             FrameoForegroundAppSensor(
                 coordinator
             ),
+
             FrameoDisplayStateSensor(
                 coordinator
             ),
+
             FrameoPowerDumpSensor(
                 coordinator
             ),
@@ -37,31 +40,59 @@ async def async_setup_entry(
 
 
 # --------------------------------------------------
-# LED BRIGHTNESS
+# BASE SENSOR
 # --------------------------------------------------
 
-class FrameoBrightnessSensor(
+class FrameoBaseSensor(
     CoordinatorEntity,
     SensorEntity,
 ):
-    """Frameo LED brightness."""
-
-    _attr_name = "Frameo LED Brightness"
+    """Base sensor."""
 
     def __init__(
         self,
         coordinator,
+        unique_suffix,
     ):
         super().__init__(coordinator)
 
         self._attr_unique_id = (
-            f"{coordinator.config_entry.entry_id}_brightness"
+            f"{coordinator.config_entry.entry_id}_{unique_suffix}"
         )
 
         self._attr_device_info = (
             get_device_info(
                 coordinator.config_entry
             )
+        )
+
+    @property
+    def available(self):
+        return self.coordinator.data.get(
+            "available",
+            False,
+        )
+
+
+# --------------------------------------------------
+# LED BRIGHTNESS
+# --------------------------------------------------
+
+class FrameoBrightnessSensor(
+    FrameoBaseSensor,
+):
+    """Frameo LED brightness."""
+
+    _attr_name = "Frameo LED Brightness"
+    _attr_icon = "mdi:brightness-6"
+
+    def __init__(
+        self,
+        coordinator,
+    ):
+        super().__init__(
+            coordinator,
+            "brightness",
         )
 
     @property
@@ -71,40 +102,26 @@ class FrameoBrightnessSensor(
             0,
         )
 
-    @property
-    def available(self):
-        return self.coordinator.data.get(
-            "available",
-            False,
-        )
-
 
 # --------------------------------------------------
 # FOREGROUND APP
 # --------------------------------------------------
 
 class FrameoForegroundAppSensor(
-    CoordinatorEntity,
-    SensorEntity,
+    FrameoBaseSensor,
 ):
     """Foreground app sensor."""
 
     _attr_name = "Foreground App"
+    _attr_icon = "mdi:application"
 
     def __init__(
         self,
         coordinator,
     ):
-        super().__init__(coordinator)
-
-        self._attr_unique_id = (
-            f"{coordinator.config_entry.entry_id}_foreground_app"
-        )
-
-        self._attr_device_info = (
-            get_device_info(
-                coordinator.config_entry
-            )
+        super().__init__(
+            coordinator,
+            "foreground_app",
         )
 
     @property
@@ -114,21 +131,13 @@ class FrameoForegroundAppSensor(
             "unknown",
         )
 
-    @property
-    def available(self):
-        return self.coordinator.data.get(
-            "available",
-            False,
-        )
-
 
 # --------------------------------------------------
 # DISPLAY STATE
 # --------------------------------------------------
 
 class FrameoDisplayStateSensor(
-    CoordinatorEntity,
-    SensorEntity,
+    FrameoBaseSensor,
 ):
     """Display ON/OFF sensor."""
 
@@ -138,115 +147,85 @@ class FrameoDisplayStateSensor(
         self,
         coordinator,
     ):
-        super().__init__(coordinator)
-
-        self._attr_unique_id = (
-            f"{coordinator.config_entry.entry_id}_display_state"
-        )
-
-        self._attr_device_info = (
-            get_device_info(
-                coordinator.config_entry
-            )
+        super().__init__(
+            coordinator,
+            "display_state",
         )
 
     @property
     def native_value(self):
-        screen_on = self.coordinator.data.get(
-            "screen_on",
-            False,
-        )
-
-        return (
-            "ON"
-            if screen_on
-            else "OFF"
+        return self.coordinator.data.get(
+            "display_state",
+            "OFF",
         )
 
     @property
     def icon(self):
-        screen_on = self.coordinator.data.get(
-            "screen_on",
-            False,
+        state = self.coordinator.data.get(
+            "display_state",
+            "OFF",
         )
 
         return (
             "mdi:monitor"
-            if screen_on
+            if state == "ON"
             else "mdi:monitor-off"
         )
 
     @property
-    def available(self):
-        return self.coordinator.data.get(
-            "available",
-            False,
-        )
+    def extra_state_attributes(self):
+        return {
+            "screen_on": self.coordinator.data.get(
+                "screen_on",
+                False,
+            ),
+        }
+
 
 # --------------------------------------------------
-# POWER DUMP DEBUG SENSOR
+# POWER DUMP SENSOR
 # --------------------------------------------------
 
 class FrameoPowerDumpSensor(
-    CoordinatorEntity,
-    SensorEntity,
+    FrameoBaseSensor,
 ):
     """ADB dumpsys power debug sensor."""
 
     _attr_name = "Power Dump"
+    _attr_icon = "mdi:android-debug-bridge"
 
     def __init__(
         self,
         coordinator,
     ):
-        super().__init__(coordinator)
-
-        self._attr_unique_id = (
-            f"{coordinator.config_entry.entry_id}_power_dump"
+        super().__init__(
+            coordinator,
+            "power_dump",
         )
 
-        self._attr_device_info = (
-            get_device_info(
-                coordinator.config_entry
-            )
-        )
-
-        self._state = "unknown"
-        
-        self._full_output = "No data yet"
-        
     @property
     def native_value(self):
-        return self._state
+        dump = self.coordinator.data.get(
+            "power_dump",
+            "",
+        )
 
-    async def async_update(self):
-        """Fetch dumpsys power."""
+        if not dump:
+            return "NO DATA"
 
-        try:
-            output = await self.coordinator.adb.shell(
-                "dumpsys power"
-            )
+        if "state=ON" in dump:
+            return "ON"
 
-            self._full_output = str(output)
+        if "state=OFF" in dump:
+            return "OFF"
 
-            self._state = (
-                "ON"
-                if "state=ON" in self._full_output
-                else "OFF"
-            )
-        
-        except Exception as err:
-            self._state = f"ERROR: {err}"
+        return "UNKNOWN"
 
     @property
     def extra_state_attributes(self):
         return {
-            "full_output": self._full_output,
+            "full_output": self.coordinator.data.get(
+                "power_dump",
+                "",
+            ),
         }
-
-    @property
-    def available(self):
-        return self.coordinator.data.get(
-            "available",
-            False,
-        )
