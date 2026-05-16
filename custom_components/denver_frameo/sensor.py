@@ -212,7 +212,9 @@ class FrameoPowerDumpSensor(
         )
 
         self._state = "unknown"
-
+        
+        self._full_output = "No data yet"
+        
     @property
     def native_value(self):
         return self._state
