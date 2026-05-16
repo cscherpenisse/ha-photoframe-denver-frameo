@@ -29,6 +29,9 @@ async def async_setup_entry(
             FrameoDisplayStateSensor(
                 coordinator
             ),
+            FrameoPowerDumpSensor(
+                coordinator
+            ),
         ]
     )
 
@@ -172,6 +175,72 @@ class FrameoDisplayStateSensor(
             if screen_on
             else "mdi:monitor-off"
         )
+
+    @property
+    def available(self):
+        return self.coordinator.data.get(
+            "available",
+            False,
+        )
+
+# --------------------------------------------------
+# POWER DUMP DEBUG SENSOR
+# --------------------------------------------------
+
+class FrameoPowerDumpSensor(
+    CoordinatorEntity,
+    SensorEntity,
+):
+    """ADB dumpsys power debug sensor."""
+
+    _attr_name = "Power Dump"
+
+    def __init__(
+        self,
+        coordinator,
+    ):
+        super().__init__(coordinator)
+
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_power_dump"
+        )
+
+        self._attr_device_info = (
+            get_device_info(
+                coordinator.config_entry
+            )
+        )
+
+        self._state = "unknown"
+
+    @property
+    def native_value(self):
+        return self._state
+
+    async def async_update(self):
+        """Fetch dumpsys power."""
+
+        try:
+            output = await self.coordinator.adb.shell(
+                "dumpsys power"
+            )
+
+            self._full_output = str(output)
+
+            self._state = (
+                "ON"
+                if "state=ON" in self._full_output
+                else "OFF"
+            )
+        
+        except Exception as err:
+            self._state = f"ERROR: {err}"
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "full_output": self._full_output,
+        }
 
     @property
     def available(self):
