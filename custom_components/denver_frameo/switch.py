@@ -19,10 +19,10 @@ class FrameoScreenSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_unique_id = (f"{coordinator.config_entry.entry_id}_frameo_screen")
         ###self._attr_device_info = get_device_info(coordinator.config_entry)
         self._attr_device_info = (
-                    get_device_info(
-                        coordinator.config_entry
-                    )
-                )
+            get_device_info(
+                coordinator.config_entry
+            )
+        )
     
     
     @property
