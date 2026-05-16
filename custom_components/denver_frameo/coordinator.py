@@ -1,5 +1,6 @@
 import asyncio
 import logging
+
 from datetime import timedelta
 
 from homeassistant.helpers.update_coordinator import (
@@ -14,7 +15,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class FrameoCoordinator(DataUpdateCoordinator):
-    """Coordinator for Denver Frameo photoframe."""
+    """Stable coordinator for Denver Frameo."""
 
     def __init__(self, hass, entry):
         self.config_entry = entry
@@ -23,6 +24,29 @@ class FrameoCoordinator(DataUpdateCoordinator):
             entry.data["host"],
             entry.data["port"],
         )
+
+        # ---------------------------------
+        # LAST KNOWN GOOD STATE
+        # ---------------------------------
+
+        self._last_data = {
+            "brightness": 0,
+            "rgb": (0, 0, 0),
+            "is_on": False,
+            "screen_on": False,
+            "display_state": "OFF",
+            "screen_brightness": 127,
+            "foreground_app": "unknown",
+            "power_dump": "",
+            "screenshot": None,
+            "available": True,
+        }
+
+        # ---------------------------------
+        # FAILURE COUNTER
+        # ---------------------------------
+
+        self._failed_updates = 0
 
         super().__init__(
             hass,
@@ -38,235 +62,176 @@ class FrameoCoordinator(DataUpdateCoordinator):
     # --------------------------------------------------
 
     async def _async_update_data(self):
-        """Fetch all Frameo state."""
+        """Stable update loop."""
+
+        data = dict(self._last_data)
+
+        success = False
 
         # --------------------------------------------------
-        # DEFAULT VALUES
-        # --------------------------------------------------
-
-        brightness = 0
-        rgb = (0, 0, 0)
-
-        screen_brightness = 127
-
-        foreground_app = "unknown"
-
-        available = False
-
-        screen_on = False
-
-        display_state = "OFF"
-
-        power_dump = ""
-
-        screenshot = None
-
-        # --------------------------------------------------
-        # TEST ADB CONNECTION
+        # ENSURE CONNECTION
         # --------------------------------------------------
 
         try:
             await asyncio.wait_for(
-                self.adb.shell(
-                    "echo connected"
-                ),
-                timeout=5,
+                self.adb.ensure_connected(),
+                timeout=10,
             )
-
-            available = True
 
         except Exception as err:
             LOGGER.warning(
-                "ADB unavailable: %s",
+                "ADB connect failed: %s",
                 err,
             )
 
-        # --------------------------------------------------
-        # DISPLAY POWER STATE
-        # --------------------------------------------------
+            self._failed_updates += 1
 
-        if available:
+            # keep old state for a while
+            if self._failed_updates < 5:
+                return data
 
-            try:
-                power_dump = await asyncio.wait_for(
-                    self.adb.shell(
-                        "dumpsys power | grep 'Display Power'"
-                    ),
-                    timeout=5,
-                )
-
-                power_dump = str(
-                    power_dump
-                ).strip()
-
-                LOGGER.warning(
-                    "POWER DUMP: %s",
-                    power_dump,
-                )
-
-                if "state=ON" in power_dump:
-                    screen_on = True
-                    display_state = "ON"
-
-                elif "state=OFF" in power_dump:
-                    screen_on = False
-                    display_state = "OFF"
-
-            except Exception as err:
-                LOGGER.warning(
-                    "Display state failed: %s",
-                    err,
-                )
-
-        # --------------------------------------------------
-        # SCREENSHOT
-        # --------------------------------------------------
-
-        if available and screen_on:
-
-            try:
-                await asyncio.wait_for(
-                    self.adb.create_screenshot(),
-                    timeout=10,
-                )
-
-                screenshot = await asyncio.wait_for(
-                    self.adb.read_screenshot(),
-                    timeout=15,
-                )
-
-                if screenshot:
-                    LOGGER.warning(
-                        "Screenshot OK (%s bytes)",
-                        len(screenshot),
-                    )
-
-            except Exception as err:
-                LOGGER.warning(
-                    "Screenshot failed: %s",
-                    err,
-                )
+            data["available"] = False
+            return data
 
         # --------------------------------------------------
         # LED STATE
         # --------------------------------------------------
 
-        if available:
+        try:
+            raw = await asyncio.wait_for(
+                self.adb.read_led_state(),
+                timeout=5,
+            )
 
-            try:
-                raw = await asyncio.wait_for(
-                    self.adb.read_led_state(),
-                    timeout=3,
-                )
+            raw = raw.strip("<>")
 
-                raw = raw.strip("<>")
+            br, r, g, b = map(
+                int,
+                raw.split(","),
+            )
 
-                br, r, g, b = map(
-                    int,
-                    raw.split(","),
-                )
+            data["brightness"] = br
+            data["rgb"] = (r, g, b)
+            data["is_on"] = br > 0
 
-                brightness = br
+            success = True
 
-                rgb = (
-                    r,
-                    g,
-                    b,
-                )
+        except Exception as err:
+            LOGGER.debug(
+                "LED read failed: %s",
+                err,
+            )
 
-            except Exception as err:
-                LOGGER.debug(
-                    "LED read failed: %s",
-                    err,
-                )
+        # --------------------------------------------------
+        # DISPLAY POWER
+        # --------------------------------------------------
+
+        try:
+            power_dump = await asyncio.wait_for(
+                self.adb.shell(
+                    "dumpsys power | grep 'Display Power'"
+                ),
+                timeout=5,
+            )
+
+            power_dump = str(power_dump)
+
+            data["power_dump"] = power_dump
+
+            if "state=ON" in power_dump:
+                data["screen_on"] = True
+                data["display_state"] = "ON"
+
+            elif "state=OFF" in power_dump:
+                data["screen_on"] = False
+                data["display_state"] = "OFF"
+
+            success = True
+
+        except Exception as err:
+            LOGGER.debug(
+                "Display state failed: %s",
+                err,
+            )
 
         # --------------------------------------------------
         # SCREEN BRIGHTNESS
         # --------------------------------------------------
 
-        if available:
-
-            try:
-                screen_brightness = await asyncio.wait_for(
+        try:
+            data["screen_brightness"] = (
+                await asyncio.wait_for(
                     self.adb.get_screen_brightness(),
-                    timeout=3,
+                    timeout=5,
                 )
+            )
 
-            except Exception as err:
-                LOGGER.debug(
-                    "Screen brightness failed: %s",
-                    err,
-                )
+        except Exception as err:
+            LOGGER.debug(
+                "Brightness read failed: %s",
+                err,
+            )
 
         # --------------------------------------------------
         # FOREGROUND APP
         # --------------------------------------------------
 
-        if available:
-
-            try:
-                foreground_app = await asyncio.wait_for(
+        try:
+            data["foreground_app"] = (
+                await asyncio.wait_for(
                     self.adb.get_foreground_app(),
-                    timeout=3,
+                    timeout=5,
                 )
+            )
 
-            except Exception as err:
-                LOGGER.debug(
-                    "Foreground app failed: %s",
-                    err,
-                )
+        except Exception as err:
+            LOGGER.debug(
+                "Foreground app failed: %s",
+                err,
+            )
 
         # --------------------------------------------------
-        # FINAL DATA
+        # SCREENSHOT
         # --------------------------------------------------
 
-        return {
-            "available": available,
+        try:
+            await asyncio.wait_for(
+                self.adb.create_screenshot(),
+                timeout=10,
+            )
 
-            "brightness": brightness,
+            screenshot = await asyncio.wait_for(
+                self.adb.read_screenshot(),
+                timeout=15,
+            )
 
-            "rgb": rgb,
+            if screenshot:
+                data["screenshot"] = screenshot
 
-            "is_on": brightness > 0,
+        except Exception as err:
+            LOGGER.debug(
+                "Screenshot failed: %s",
+                err,
+            )
 
-            "screen_brightness": screen_brightness,
+        # --------------------------------------------------
+        # FINAL STATUS
+        # --------------------------------------------------
 
-            "foreground_app": foreground_app,
+        if success:
+            data["available"] = True
+            self._failed_updates = 0
+        else:
+            self._failed_updates += 1
 
-            "screen_on": screen_on,
+            LOGGER.warning(
+                "Partial update failed (%s)",
+                self._failed_updates,
+            )
 
-            "display_state": display_state,
+            if self._failed_updates >= 5:
+                data["available"] = False
 
-            "power_dump": power_dump,
+        self._last_data = data
 
-            "screenshot": screenshot,
-        }
-
-    # --------------------------------------------------
-    # SAFE FALLBACK
-    # --------------------------------------------------
-
-    async def _async_update_data_fallback(self):
-        """Fallback state."""
-
-        return {
-            "available": False,
-
-            "brightness": 0,
-
-            "rgb": (0, 0, 0),
-
-            "is_on": False,
-
-            "screen_brightness": 127,
-
-            "foreground_app": "unknown",
-
-            "screen_on": False,
-
-            "display_state": "OFF",
-
-            "power_dump": "",
-
-            "screenshot": None,
-        }
+        return data
