@@ -100,39 +100,27 @@ class FrameoADB:
     async def is_screen_on(self) -> bool:
         """Check if display is ON."""
 
-        output = await self.shell(
-            "dumpsys power"
-        )
+        try:
+            output = await self.shell(
+                "dumpsys power | grep 'Display Power'"
+            )
 
-        output = str(output)
+            output = str(output).strip()
 
-        # DEBUG
-        _LOGGER.warning(
-            "POWER STATE OUTPUT: %s",
-            output,
-        )
+            _LOGGER.warning(
+                "DISPLAY POWER: %s",
+                output,
+            )
 
-    # ---------------------------------
-    # FRAMEO CHECK
-    # ---------------------------------
+            return "state=ON" in output
 
-        if "Display Power: state=ON" in output:
-            return True
+        except Exception as err:
+            _LOGGER.warning(
+                "Display state check failed: %s",
+                err,
+            )
 
-        if "Display Power: state=OFF" in output:
             return False
-
-    # ---------------------------------
-    # FALLBACK
-    # ---------------------------------
-
-        if "mWakefulness=Awake" in output:
-            return True
-
-        if "mWakefulness=Asleep" in output:
-            return False
-
-        return False
     
     # --------------------------------------------------
     # SCREEN CONTROL
