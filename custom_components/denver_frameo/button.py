@@ -24,7 +24,7 @@ class StartFullyKioskButton(CoordinatorEntity, ButtonEntity):
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
-
+        self._attr_unique_id = (f"{coordinator.config_entry.entry_id}_start_fully_kiosk")
         self._attr_device_info = get_device_info(
             coordinator.config_entry
         )
@@ -43,7 +43,7 @@ class StartFrameoButton(CoordinatorEntity, ButtonEntity):
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
-
+        self._attr_unique_id = (f"{coordinator.config_entry.entry_id}_start_start_frameo")
         self._attr_device_info = get_device_info(
             coordinator.config_entry
         )
