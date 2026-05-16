@@ -1,10 +1,13 @@
 import asyncio
+import logging
 import os
 import tempfile
 
 from adb_shell.adb_device_async import (
     AdbDeviceTcpAsync,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class FrameoADB:
@@ -15,24 +18,35 @@ class FrameoADB:
     ):
         self.host = host
         self.port = port
-        
+
         self.lock = asyncio.Lock()
+
+        self._connected = False
+
+    # --------------------------------------------------
+    # CONNECTION
+    # --------------------------------------------------
+
+    async def ensure_connected(self):
+        """Compatibility helper."""
+
+        return True
 
     # --------------------------------------------------
     # LOW LEVEL SHELL
     # --------------------------------------------------
 
-
     async def shell(
         self,
         command: str,
     ):
-        
+        """Execute ADB shell command."""
+
         async with self.lock:
 
             device = AdbDeviceTcpAsync(
-            self.host,
-            self.port,
+                self.host,
+                self.port,
             )
 
             try:
@@ -44,12 +58,21 @@ class FrameoADB:
                     timeout=5,
                 )
 
+                self._connected = True
+
                 result = await asyncio.wait_for(
                     device.shell(command),
-                    timeout=10,
+                    timeout=15,
                 )
 
                 return result
+
+            except Exception as err:
+                self._connected = False
+
+                raise Exception(
+                    f"ADB command failed: {err}"
+                )
 
             finally:
                 try:
@@ -57,8 +80,6 @@ class FrameoADB:
 
                 except Exception:
                     pass
-
-
 
     # --------------------------------------------------
     # LED CONTROL
@@ -92,7 +113,7 @@ class FrameoADB:
         )
 
         await self.shell(cmd)
-        
+
     # --------------------------------------------------
     # SCREEN STATUS
     # --------------------------------------------------
@@ -121,7 +142,7 @@ class FrameoADB:
             )
 
             return False
-    
+
     # --------------------------------------------------
     # SCREEN CONTROL
     # --------------------------------------------------
@@ -137,8 +158,7 @@ class FrameoADB:
         """Get Android brightness."""
 
         result = await self.shell(
-            "settings get system "
-            "screen_brightness"
+            "settings get system screen_brightness"
         )
 
         try:
@@ -154,8 +174,7 @@ class FrameoADB:
         """Set Android brightness."""
 
         await self.shell(
-            f"settings put system "
-            f"screen_brightness {brightness}"
+            f"settings put system screen_brightness {brightness}"
         )
 
     # --------------------------------------------------
@@ -165,12 +184,11 @@ class FrameoADB:
     async def get_foreground_app(self):
         """Get foreground app."""
 
-        result = await self.shell(
-            "dumpsys window windows "
-            "| grep mCurrentFocus"
-        )
-
         try:
+            result = await self.shell(
+                "dumpsys window windows | grep mCurrentFocus"
+            )
+
             line = result.strip()
 
             if "/" in line:
@@ -210,59 +228,65 @@ class FrameoADB:
     # SCREENSHOT
     # --------------------------------------------------
 
-async def create_screenshot(self):   
+    async def create_screenshot(self):
+        """Create screenshot on device."""
 
-    await self.shell(
-        "screencap -p "
-        "/sdcard/frameo_screen.png"
-    )
-
-
-async def read_screenshot(self):
-    """Read screenshot file safely."""
-
-    async with self.lock:
-
-        device = AdbDeviceTcpAsync(
-            self.host,
-            self.port,
+        await self.shell(
+            "screencap -p "
+            "/sdcard/frameo_screen.png"
         )
 
-        try:
-            await asyncio.wait_for(
-                device.connect(
-                    rsa_keys=[],
-                    auth_timeout_s=3,
-                ),
-                timeout=5,
+    async def read_screenshot(self):
+        """Read screenshot file safely."""
+
+        async with self.lock:
+
+            device = AdbDeviceTcpAsync(
+                self.host,
+                self.port,
             )
 
-            import tempfile
-
-            temp_file = tempfile.NamedTemporaryFile(
-                suffix=".png",
-                delete=False,
-            )
-
-            temp_path = temp_file.name
-
-            temp_file.close()
-
-            await device.pull(
-                "/sdcard/frameo_screen.png",
-                temp_path,
-            )
-
-            with open(temp_path, "rb") as file:
-                data = file.read()
-
-            os.remove(temp_path)
-
-            return data
-
-        finally:
             try:
-                await device.close()
+                await asyncio.wait_for(
+                    device.connect(
+                        rsa_keys=[],
+                        auth_timeout_s=3,
+                    ),
+                    timeout=5,
+                )
 
-            except Exception:
-                pass
+                temp_file = tempfile.NamedTemporaryFile(
+                    suffix=".png",
+                    delete=False,
+                )
+
+                temp_path = temp_file.name
+
+                temp_file.close()
+
+                await device.pull(
+                    "/sdcard/frameo_screen.png",
+                    temp_path,
+                )
+
+                with open(temp_path, "rb") as file:
+                    data = file.read()
+
+                os.remove(temp_path)
+
+                return data
+
+            except Exception as err:
+                _LOGGER.warning(
+                    "Screenshot read failed: %s",
+                    err,
+                )
+
+                return None
+
+            finally:
+                try:
+                    await device.close()
+
+                except Exception:
+                    pass
