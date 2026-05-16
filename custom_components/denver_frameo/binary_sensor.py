@@ -32,7 +32,7 @@ class FrameoAvailabilitySensor(
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
-
+        self._attr_unique_id = (f"{coordinator.config_entry.entry_id}_online")
         self._attr_device_info = get_device_info(
             coordinator.config_entry
         )
