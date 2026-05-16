@@ -104,7 +104,7 @@ class FrameoADB:
             "dumpsys power"
         )
 
-    return "Display Power: state=ON" in output
+        return "Display Power: state=ON" in output
     
     # --------------------------------------------------
     # SCREEN CONTROL
