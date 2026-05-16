@@ -47,6 +47,11 @@ class FrameoMediaPlayer(MediaPlayerEntity):
 
     _attr_media_image_remotely_accessible = False
 
+    _attr_extra_state_attributes = {
+        "media_width": 1280,
+        "media_height": 800,
+    }
+    
     _attr_supported_features = (
         MediaPlayerEntityFeature.TURN_ON
         | MediaPlayerEntityFeature.TURN_OFF
