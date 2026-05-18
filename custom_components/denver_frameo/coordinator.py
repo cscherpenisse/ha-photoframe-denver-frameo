@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 
 from datetime import timedelta
 
@@ -40,6 +41,10 @@ class FrameoCoordinator(DataUpdateCoordinator):
             "power_dump": "",
             "screenshot": None,
             "available": True,
+            "media_title": None,
+            "media_artist": None,
+            "media_album": None,
+            "media_app": None,
         }
 
         # ---------------------------------
@@ -211,6 +216,62 @@ class FrameoCoordinator(DataUpdateCoordinator):
         except Exception as err:
             LOGGER.debug(
                 "Screenshot failed: %s",
+                err,
+            )
+
+        # --------------------------------------------------
+        # MEDIA SESSION
+        # --------------------------------------------------
+
+        try:
+            media_dump = await asyncio.wait_for(
+                self.adb.get_media_session(),
+                timeout=5,
+            )
+
+            title_match = re.search(
+                r"description=.*?, (.*?),",
+                media_dump,
+            )
+
+            artist_match = re.search(
+                r"artist=(.*?)\n",
+                media_dump,
+            )
+
+            album_match = re.search(
+                r"album=(.*?)\n",
+                media_dump,
+            )
+
+            package_match = re.search(
+                r"package=(.*?) ",
+                media_dump,
+            )
+
+            if title_match:
+                data["media_title"] = (
+                    title_match.group(1).strip()
+                )
+
+            if artist_match:
+                data["media_artist"] = (
+                    artist_match.group(1).strip()
+                )
+
+            if album_match:
+                data["media_album"] = (
+                    album_match.group(1).strip()
+                )
+
+            if package_match:
+                data["media_app"] = (
+                    package_match.group(1).strip()
+                )
+
+        except Exception as err:
+            LOGGER.debug(
+                "Media session failed: %s",
                 err,
             )
 
