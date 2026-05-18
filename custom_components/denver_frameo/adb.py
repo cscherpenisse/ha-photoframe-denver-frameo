@@ -290,3 +290,20 @@ class FrameoADB:
 
                 except Exception:
                     pass
+
+    # --------------------------------------------------
+    # MEDIA SESSION
+    # --------------------------------------------------
+
+    async def get_media_session(self):
+        """Get Android media session info."""
+
+        try:
+            output = await self.shell(
+                "dumpsys media_session"
+            )
+
+            return str(output)
+
+        except Exception:
+            return ""
