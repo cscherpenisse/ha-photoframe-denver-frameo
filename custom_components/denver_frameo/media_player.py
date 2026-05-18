@@ -54,6 +54,12 @@ class FrameoMediaPlayer(
     _attr_supported_features = (
         MediaPlayerEntityFeature.TURN_ON
         | MediaPlayerEntityFeature.TURN_OFF
+        | MediaPlayerEntityFeature.PLAY
+        | MediaPlayerEntityFeature.PAUSE
+        | MediaPlayerEntityFeature.STOP
+        | MediaPlayerEntityFeature.PLAY_MEDIA
+        | MediaPlayerEntityFeature.SELECT_SOURCE
+        | MediaPlayerEntityFeature.BROWSE_MEDIA
     )
 
     # --------------------------------------------------
@@ -125,7 +131,7 @@ class FrameoMediaPlayer(
         return STATE_OFF
 
     # --------------------------------------------------
-    # MEDIA TITLE
+    # MEDIA INFO
     # --------------------------------------------------
 
     @property
@@ -136,10 +142,6 @@ class FrameoMediaPlayer(
             "media_title"
         )
 
-    # --------------------------------------------------
-    # MEDIA ARTIST
-    # --------------------------------------------------
-
     @property
     def media_artist(self):
         """Current artist."""
@@ -147,10 +149,6 @@ class FrameoMediaPlayer(
         return self.coordinator.data.get(
             "media_artist"
         )
-
-    # --------------------------------------------------
-    # MEDIA ALBUM
-    # --------------------------------------------------
 
     @property
     def media_album_name(self):
@@ -160,10 +158,6 @@ class FrameoMediaPlayer(
             "media_album"
         )
 
-    # --------------------------------------------------
-    # APP NAME
-    # --------------------------------------------------
-
     @property
     def app_name(self):
         """Current media app."""
@@ -171,6 +165,53 @@ class FrameoMediaPlayer(
         return self.coordinator.data.get(
             "media_app"
         )
+
+    @property
+    def media_content_type(self):
+        """Media type."""
+
+        return "image"
+
+    @property
+    def media_content_id(self):
+        """Media id."""
+
+        return "frameo_screen"
+
+    @property
+    def media_duration(self):
+        return None
+
+    @property
+    def media_position(self):
+        return None
+
+    @property
+    def media_position_updated_at(self):
+        return None
+
+    # --------------------------------------------------
+    # SOURCE
+    # --------------------------------------------------
+
+    @property
+    def source(self):
+        """Current app."""
+
+        return self.coordinator.data.get(
+            "foreground_app"
+        )
+
+    @property
+    def source_list(self):
+        """Available apps."""
+
+        return [
+            "Frameo",
+            "Fully Kiosk",
+            "Spotify",
+            "Screensaver",
+        ]
 
     # --------------------------------------------------
     # MEDIA IMAGE
@@ -248,6 +289,65 @@ class FrameoMediaPlayer(
             await self.coordinator.async_request_refresh()
 
     # --------------------------------------------------
+    # MEDIA CONTROLS
+    # --------------------------------------------------
+
+    async def async_media_play(self):
+        """Send play."""
+
+        await self.coordinator.adb.shell(
+            "input keyevent KEYCODE_MEDIA_PLAY"
+        )
+
+    async def async_media_pause(self):
+        """Send pause."""
+
+        await self.coordinator.adb.shell(
+            "input keyevent KEYCODE_MEDIA_PAUSE"
+        )
+
+    async def async_media_stop(self):
+        """Send stop."""
+
+        await self.coordinator.adb.shell(
+            "input keyevent KEYCODE_MEDIA_STOP"
+        )
+
+    # --------------------------------------------------
+    # SOURCE SELECT
+    # --------------------------------------------------
+
+    async def async_select_source(
+        self,
+        source,
+    ):
+        """Launch app."""
+
+        if source == "Frameo":
+            await self.coordinator.adb.start_frameo()
+
+        elif source == "Fully Kiosk":
+            await self.coordinator.adb.start_fully_kiosk()
+
+    # --------------------------------------------------
+    # PLAY MEDIA
+    # --------------------------------------------------
+
+    async def async_play_media(
+        self,
+        media_type,
+        media_id,
+        **kwargs,
+    ):
+        """Optional play media support."""
+
+        LOGGER.warning(
+            "Play media requested: %s %s",
+            media_type,
+            media_id,
+        )
+
+    # --------------------------------------------------
     # EXTRA ATTRIBUTES
     # --------------------------------------------------
 
@@ -307,6 +407,13 @@ class FrameoMediaPlayer(
             ),
 
             # -------------------------
+            # DISPLAY SIZE
+            # -------------------------
+
+            "media_width": 1280,
+            "media_height": 800,
+
+            # -------------------------
             # DEBUG
             # -------------------------
 
@@ -315,11 +422,4 @@ class FrameoMediaPlayer(
                     "host"
                 )
             ),
-
-            # -------------------------
-            # DISPLAY SIZE
-            # -------------------------
-
-            "media_width": 1280,
-            "media_height": 800,
         }
