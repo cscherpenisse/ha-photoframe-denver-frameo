@@ -32,13 +32,17 @@ async def async_setup_entry(
 
     async_add_entities(
         [
-            FrameoMediaPlayer(coordinator)
+            FrameoMediaPlayer(
+                coordinator
+            )
         ],
         True,
     )
 
 
-class FrameoMediaPlayer(MediaPlayerEntity):
+class FrameoMediaPlayer(
+    MediaPlayerEntity
+):
     """Denver Frameo media player."""
 
     _attr_name = "Frameo Screen"
@@ -47,17 +51,19 @@ class FrameoMediaPlayer(MediaPlayerEntity):
 
     _attr_media_image_remotely_accessible = False
 
-    _attr_extra_state_attributes = {
-        "media_width": 1280,
-        "media_height": 800,
-    }
-    
     _attr_supported_features = (
         MediaPlayerEntityFeature.TURN_ON
         | MediaPlayerEntityFeature.TURN_OFF
     )
 
-    def __init__(self, coordinator):
+    # --------------------------------------------------
+    # INIT
+    # --------------------------------------------------
+
+    def __init__(
+        self,
+        coordinator,
+    ):
         """Init."""
 
         self.coordinator = coordinator
@@ -66,8 +72,10 @@ class FrameoMediaPlayer(MediaPlayerEntity):
             f"{coordinator.config_entry.entry_id}_media"
         )
 
-        self._attr_device_info = get_device_info(
-            coordinator.config_entry
+        self._attr_device_info = (
+            get_device_info(
+                coordinator.config_entry
+            )
         )
 
         self._media_image = (
@@ -98,23 +106,79 @@ class FrameoMediaPlayer(MediaPlayerEntity):
 
     @property
     def state(self):
-        """Return state."""
+        """Return media player state."""
 
         data = self.coordinator.data or {}
 
-        if not data.get("available"):
+        if not data.get(
+            "available",
+            False,
+        ):
             return STATE_UNAVAILABLE
 
-        if data.get("screen_on", False):
+        if data.get(
+            "screen_on",
+            False,
+        ):
             return STATE_ON
 
         return STATE_OFF
 
     # --------------------------------------------------
+    # MEDIA TITLE
+    # --------------------------------------------------
+
+    @property
+    def media_title(self):
+        """Current track title."""
+
+        return self.coordinator.data.get(
+            "media_title"
+        )
+
+    # --------------------------------------------------
+    # MEDIA ARTIST
+    # --------------------------------------------------
+
+    @property
+    def media_artist(self):
+        """Current artist."""
+
+        return self.coordinator.data.get(
+            "media_artist"
+        )
+
+    # --------------------------------------------------
+    # MEDIA ALBUM
+    # --------------------------------------------------
+
+    @property
+    def media_album_name(self):
+        """Current album."""
+
+        return self.coordinator.data.get(
+            "media_album"
+        )
+
+    # --------------------------------------------------
+    # APP NAME
+    # --------------------------------------------------
+
+    @property
+    def app_name(self):
+        """Current media app."""
+
+        return self.coordinator.data.get(
+            "media_app"
+        )
+
+    # --------------------------------------------------
     # MEDIA IMAGE
     # --------------------------------------------------
 
-    async def async_get_media_image(self):
+    async def async_get_media_image(
+        self,
+    ):
         """Return current screenshot."""
 
         return self._media_image
@@ -124,14 +188,16 @@ class FrameoMediaPlayer(MediaPlayerEntity):
     # --------------------------------------------------
 
     async def async_update(self):
-        """Update from coordinator only."""
+        """Update from coordinator."""
 
         try:
             await self.coordinator.async_request_refresh()
 
             data = self.coordinator.data or {}
 
-            image = data.get("screenshot")
+            image = data.get(
+                "screenshot"
+            )
 
             if image:
                 self._media_image = (
@@ -140,8 +206,9 @@ class FrameoMediaPlayer(MediaPlayerEntity):
                 )
 
                 self._attr_media_image_hash = (
-                    hashlib.sha256(image)
-                    .hexdigest()[:16]
+                    hashlib.sha256(
+                        image
+                    ).hexdigest()[:16]
                 )
 
         except Exception as err:
@@ -157,9 +224,13 @@ class FrameoMediaPlayer(MediaPlayerEntity):
     async def async_turn_on(self):
         """Turn screen on."""
 
-        await self.coordinator.adb.toggle_screen()
+        if not self.coordinator.data.get(
+            "screen_on",
+            False,
+        ):
+            await self.coordinator.adb.toggle_screen()
 
-        await self.coordinator.async_request_refresh()
+            await self.coordinator.async_request_refresh()
 
     # --------------------------------------------------
     # TURN OFF
@@ -168,9 +239,13 @@ class FrameoMediaPlayer(MediaPlayerEntity):
     async def async_turn_off(self):
         """Turn screen off."""
 
-        await self.coordinator.adb.toggle_screen()
+        if self.coordinator.data.get(
+            "screen_on",
+            False,
+        ):
+            await self.coordinator.adb.toggle_screen()
 
-        await self.coordinator.async_request_refresh()
+            await self.coordinator.async_request_refresh()
 
     # --------------------------------------------------
     # EXTRA ATTRIBUTES
@@ -183,10 +258,68 @@ class FrameoMediaPlayer(MediaPlayerEntity):
         data = self.coordinator.data or {}
 
         return {
+            # -------------------------
+            # SCREEN
+            # -------------------------
+
+            "screen_on": data.get(
+                "screen_on",
+                False,
+            ),
+
+            "display_state": data.get(
+                "display_state",
+                "OFF",
+            ),
+
+            "screen_brightness": data.get(
+                "screen_brightness",
+                127,
+            ),
+
+            # -------------------------
+            # APPS
+            # -------------------------
+
             "foreground_app": data.get(
-                "foreground_app"
+                "foreground_app",
+                "unknown",
             ),
-            "ip_address": self.coordinator.config_entry.data.get(
-                "host"
+
+            "media_app": data.get(
+                "media_app",
             ),
+
+            # -------------------------
+            # MEDIA
+            # -------------------------
+
+            "media_title": data.get(
+                "media_title",
+            ),
+
+            "media_artist": data.get(
+                "media_artist",
+            ),
+
+            "media_album": data.get(
+                "media_album",
+            ),
+
+            # -------------------------
+            # DEBUG
+            # -------------------------
+
+            "ip_address": (
+                self.coordinator.config_entry.data.get(
+                    "host"
+                )
+            ),
+
+            # -------------------------
+            # DISPLAY SIZE
+            # -------------------------
+
+            "media_width": 1280,
+            "media_height": 800,
         }
